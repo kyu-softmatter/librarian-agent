@@ -9,7 +9,15 @@ index/
 
 # Copyrighted originals never enter the repository (BD knowledge/raw convention).
 # Only the in-git distillation is canonical; the original is fetched via source_url.
-kb/07-sources/raw/
+kb/07-sources/raw/*
+!kb/07-sources/raw/.gitkeep
+
+# Retrieval sessions store raw query text, and this repository is public.
+# What someone was looking for is what they are about to do, so the publish-gate
+# scope has to be settled first (PLAN.md 6.1, FEEDBACK.md 6 open item a).
+# Local only until then; oracles/ is committed.
+kb/08-retrieval/sessions/*
+!kb/08-retrieval/sessions/.gitkeep
 
 # Fixture corpus: copies of real entries used to validate the build (BUILD.md).
 # Copies, not migration — they are discarded when MIGRATION.md Step 1 begins.
