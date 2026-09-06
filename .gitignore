@@ -1,0 +1,27 @@
+# Local clone cache of the three source repositories — never canonical
+cache/
+
+# Derived artefacts: the index is rebuilt from kb/, so it is not tracked
+index/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Copyrighted originals never enter the repository (BD knowledge/raw convention).
+# Only the in-git distillation is canonical; the original is fetched via source_url.
+kb/07-sources/raw/
+
+# Fixture corpus: copies of real entries used to validate the build (BUILD.md).
+# Copies, not migration — they are discarded when MIGRATION.md Step 1 begins.
+fixtures/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# OS
+.DS_Store
