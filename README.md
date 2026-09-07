@@ -94,6 +94,16 @@ themselves derived from where the microscope and the simulator independently
 converged — so they are not one repository's to change alone.
 → [PLAN.md](PLAN.md) §2
 
+**And this repository is inside the loop, not beside it.** It asks no question
+and produces no result, so it is tempting to place it outside the feedback the
+other three form. That is wrong: results and dead ends land in its custody and
+topic selection reads them from here, so it is on the **return path** — and a
+store that decides which evidence surfaces is an amplifier whether or not it
+asks anything, because **what a search ranks, it selects.** The tightest form of
+that is an agent promoting its own retrieval results to ground truth, which is
+why promotion needs human approval and reproduction under two distinct index
+states → [FEEDBACK.md](FEEDBACK.md) §5.
+
 Three of those constraints shape everything here:
 
 - **The default is failure.** Zero results is `searched_empty`; an unrecorded
