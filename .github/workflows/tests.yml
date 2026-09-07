@@ -1,0 +1,79 @@
+# Two jobs, split on what a red build means.
+#
+#   unit         no repository clones. Red means this repository is internally
+#                inconsistent. This is the badge.
+#   integration  clones the live remotes. Red means a **source repository
+#                moved** -- which is information rather than a defect here, so
+#                it does not fail the build.
+#
+# The split is deliberate. The integration tests assert facts about the
+# microscope at the commit they were written against: that G2 is still
+# unimplemented, that seven wikilinks still dangle. When one stops holding,
+# someone should look at it; it should not block a change to this repository.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: unit (no clones)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      # The integration tests are deselected by the marker, and they also skip
+      # themselves when cache/ is empty -- two independent reasons this run
+      # touches no source repository. pytest reports the deselected count, so
+      # there is nothing useful for a separate step to assert.
+      - name: pytest, unit only
+        run: python -m pytest -m "not integration"
+
+  integration:
+    name: integration (live remotes -- red means a source repo moved)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+
+      - name: clone the source repositories
+        run: |
+          git clone --depth 1 https://github.com/kyu-softmatter/agentic-microscope.git cache/ms
+          git clone --depth 1 https://github.com/kyu-softmatter/Brownian-Dynamics-Agent.git cache/bd
+          git -C cache/ms rev-parse --short HEAD
+          git -C cache/bd rev-parse --short HEAD
+
+      - name: pytest, everything
+        run: python -m pytest -q
+
+      - name: the index rebuilds byte-identically
+        run: |
+          python -m librarian.cli reindex --repo ms
+          A=$(sha256sum index/kb.sqlite | cut -d' ' -f1)
+          rm -rf index map/manifest.json
+          python -m librarian.cli reindex --repo ms
+          B=$(sha256sum index/kb.sqlite | cut -d' ' -f1)
+          echo "$A"; echo "$B"
+          test "$A" = "$B"
+
+      # Reported, never gating. A finding here is a fact about the source
+      # repository, and `drift` exits non-zero when it finds an error-level one.
+      - name: drift report
+        continue-on-error: true
+        run: |
+          python -m librarian.cli drift --repo ms --repo bd
+          python -m librarian.cli gaps --missing-only
