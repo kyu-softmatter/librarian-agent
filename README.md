@@ -1,74 +1,114 @@
 # librarian-agent
 
+[![tests](https://github.com/kyu-softmatter/librarian-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/kyu-softmatter/librarian-agent/actions/workflows/tests.yml)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-A librarian for the other three agents:
-[agentic-microscope](https://github.com/kyu-softmatter/agentic-microscope) (experiment) ·
-[Brownian-Dynamics-Agent](https://github.com/kyu-softmatter/Brownian-Dynamics-Agent) (simulation) ·
-[research-topic](https://github.com/kyu-softmatter/research-topic) (proposal and validation).
+**A librarian for three research agents: one canonical knowledge store,
+retrieval profiled per calling agent, and custody that includes retirement.**
 
-**One canonical knowledge store, retrieval profiled per calling agent, and
-custody that includes retirement.** The fourth axis: the other three produce
-knowledge and enforce their own domains; this one keeps it findable and reports
-when it has gone stale.
-
-> [!IMPORTANT]
-> **v1 is the microscope agent only.** Six read tools over an index of that
-> repository. No knowledge has been migrated yet — the store is built and empty
-> by design, because a form fixed after it is filled throws away what was filled.
-> → [PLAN.md](PLAN.md) §0
+Drafted 2026-09-06 · **v1 — the microscope agent only**
 
 ---
 
-## Two things to do at the lab PC
+## Why this exists
 
-**These are the prerequisites for the acquisition archive, and both are still
-open.** The archive is 2,343 acquisitions under `D:\data`, outside every
-repository — the reason `envelope.sqlite` is deferred to v2
-([PLAN.md](PLAN.md) §0.3).
+Three agents already run, and each already keeps a knowledge base. **What does
+not exist is the exchange between them**, and two failures were already visible
+before this repository was created.
 
-### 1. Get Librarian running there
+**A knowledge base dies in one of two ways** — nobody fills it, or the index
+goes stale so the files are all there and search finds nothing. The second had
+already begun: `Brownian-Dynamics-Agent`'s `knowledge/source/papers/INDEX.md`
+is headed *do not edit by hand*, names a generator that is **not in the
+repository**, and states 40 entries where 42 files exist. A tool that cannot
+rediscover that by itself is not doing anything, so that is the first thing this
+one is tested against.
 
-```bat
-git clone --depth 1 https://github.com/kyu-softmatter/agentic-microscope.git cache/ms
-pip install -e .
-python -m librarian.cli reindex --repo ms
+**And what each agent needs differs by stage.** Asked one question, the
+microscope's photo-perturbation lens and its sample-optics lens want different
+evidence — different registries, different gates, different captured priors.
+Searching once for both is not efficient and it is not what either asked. So
+retrieval here is profiled per caller: the same question deliberately returns
+different results depending on who asked.
+
+Two more things follow from being the place knowledge lands.
+
+**Custody has to include retirement.** A store that only accumulates goes stale
+by definition. Every entry in all three repositories already carries its own
+falsifier — the check that would overturn it — and a falsifier is a work order
+nobody has run yet. So this repository also holds the mechanism for doubting a
+claim, and the *type* of the falsifier decides who runs it: a measurement goes
+to the microscope, a run to the simulator, an unchecked condition of validity to
+research-topic.
+
+**And it has to say when it is behind.** Every answer carries `index_stale`, and
+a stale index refuses under `--strict`. Deferring a scheduled refresh moves the
+job to a person; the flag is what keeps a forgotten refresh from being silent.
+
+---
+
+## Relation to the other three
+
+```text
+                    +-------------------------------------+
+                    |            research-topic           |
+                    |  proposal and validation            |
+                    |  topic candidates . rigor axes      |
+                    +--+-------------------------------+--+
+                       |                               ^
+        topics, in falsifiable form                    |   results, dead ends,
+        rigor-axis definitions                         |   questions
+                       v                               |
+     +-----------------+--------+       +--------------+-----------+
+     | Brownian-Dynamics-Agent  |       |    agentic-microscope    |
+     | simulation               | <---> |    experiment            |
+     | A1-A10 . deterministic   |       |    8 lenses . G1-G32     |
+     | gate . dimensions first  |       |    BLOCKED by default    |
+     +------------+-------------+       +-------------+------------+
+                  |                                   |
+                  |        read-only ingest           |
+                  +---------------+-------------------+
+                                  v
+                    +-------------------------------+
+                    |       librarian  (here)       |
+                    |  one store . one index        |
+                    |  retrieval per caller         |
+                    |  retirement . staleness       |
+                    +---------------+---------------+
+                                    |
+                     generated read-only copy back,
+                     so a lens that reads with Grep
+                     still works offline
 ```
 
-**Then change `.mcp.json`'s `"command"` from `python3` to `python`.** `python3`
-is not normally on `PATH` on Windows, and the lab machine is the one that has
-the archive. Everything else is platform-independent: paths in the index are
-posix, and the only native dependency is SQLite.
+| | Owns | Does not |
+|---|---|---|
+| **agentic-microscope** | instrument state, calibrations, what this setup can physically do | — |
+| **Brownian-Dynamics-Agent** | run provenance, seeds, engine versions, non-dimensionalization | — |
+| **research-topic** | the form of a pass condition, the canonical-source list, topic candidates | set values or run anything |
+| **librarian** *(here)* | the store, the index, retrieval, custody and retirement | **originate numbers · set thresholds · run a simulation or an experiment · settle a challenge whose falsifier it cannot run · decide a topic's value** |
 
-### 2. Decide and build the metadata dump
+**The prohibitions are inherited, not chosen.** They come from the six
+philosophy items and the boundary table in `research-topic`, which were
+themselves derived from where the microscope and the simulator independently
+converged — so they are not one repository's to change alone.
+→ [PLAN.md](PLAN.md) §2
 
-The dump is what makes the archive ingestible without installing Librarian
-permanently on the lab PC, and it keeps the decision reversible
-([PLAN.md](PLAN.md) §9 open item b: run there, or ingest an export).
+Three of those constraints shape everything here:
 
-**The scope is already specified and does not need designing** — MS
-`docs/02-knowledge-base.md` §7 fixes it:
-
-| Item | What the spec says |
-|---|---|
-| Size | Up to 44 MB per file. **Stream the header only** — `Summary` + the first `FrameKey` + a 96 kB tail |
-| Two schemas | MM 1.4.23 (2,137 acquisitions, 91 %) differs from 2.0.3 |
-| System identity | Distinguishing by PC name gets it wrong. Use the device-label set plus a camera chip/serial hash |
-| Label typos | `Prime95B` vs `Pirme95B` in 20 acquisitions — an alias table is needed |
-| Folder names | `Las10` = level, `Las488` = wavelength, `Las555_5` = 555 nm at 5 %. An integer in 350–800 is a wavelength |
-| Cheap drop screen | From the tail's `ElapsedTime-ms`: `(last − first) / (n − 1)` is the mean delivered interval, so it exceeds the requested interval exactly when frames went missing. It cannot say **where** or **how many** — that needs every timestamp |
-
-**So three fragments per file, not 44 MB.** At 2,343 files the dump is still
-substantial, which is why it is worth writing the extractor before the session
-rather than during it.
-
-**Not built yet.** The extractor and the `envelope.sqlite` schema are v2 work.
+- **The default is failure.** Zero results is `searched_empty`; an unrecorded
+  query is `not_searched`. Neither is "fine".
+- **The LLM does not originate numbers.** Every value returned is quoted from a
+  file with its location attached — `repo@sha:path#locator` on every hit.
+- **Natural language is not state.** Anything used for branching, routing or a
+  verdict is an enum, a number, an ID or a boolean. Prose is for humans.
 
 ---
 
-## What is built
+## v1 — what is built
 
-Measured against `agentic-microscope` @ `196cdf1`:
+Read tools only, over the microscope repository. Measured against
+`agentic-microscope` @ `196cdf1`:
 
 | | |
 |---|---|
@@ -94,7 +134,7 @@ python -m pytest
 ### The six tools
 
 Registered through [`.mcp.json`](.mcp.json) as `python -m mcp_server.server`.
-All read-only; nothing writes to any repository.
+All annotated read-only; nothing writes to any repository.
 
 | Tool | Answers |
 |---|---|
@@ -105,10 +145,12 @@ All read-only; nothing writes to any repository.
 | `kb_gaps` | which gate is `BLOCKED`, for want of which input |
 | `kb_stale` | whether the index is behind, and whether what is declared still matches what exists |
 
-The write half — `kb_challenge_raise` and `kb_feedback` — is not here. A
-challenge routes by the type of the falsifier it cites, and a retrieval record
-stores raw query text in a repository that is public, so the publish-gate scope
-is settled first (→ [PLAN.md](PLAN.md) §6.1).
+**Retrieval is profiled, and the profile is a versioned file rather than a query
+the model composes.** v1 ships a pair — `ms:lens-5-photo-perturbation` and
+`ms:lens-4-sample-optics` — because one profile cannot demonstrate that profiles
+do anything. Asked *"what limits how long I can image this dye"*, their top
+three are **disjoint**: lens 5 lands in `kb/literature/`, lens 4 in
+`kb/expertise/`.
 
 ### What it found
 
@@ -124,11 +166,116 @@ None of these was read off a sentence that says so.
 - **The exemplar challenge entry cannot be challenged.**
   `kb/expertise/oil-objective-trapping-in-water.md` is the entry research-topic
   holds up as *"a challenge that was upheld"*, and it carries no falsification
-  section where five of the six entries beside it do.
+  section where five of the six entries beside it do. By the schema's own rule an
+  entry with no falsifier cannot be challenged, so the model case is exempt from
+  the rule it models.
 - **Seven wikilinks point at entries nobody wrote.**
-- **BD's `INDEX.md` names a generator that is not in the repository** and states
-  40 entries where 42 files exist — the two defects that were found by reading,
-  rediscovered by tool, which is Phase 0's exit condition.
+- **BD's `INDEX.md` defects, rediscovered by tool** — the missing generator and
+  40 against 42. That was v1's exit condition.
+
+---
+
+## What comes next
+
+### v1, remaining
+
+| | Blocked on |
+|---|---|
+| `kb_challenge_raise` — raise a doubt, routed by falsifier type | nothing; next |
+| `kb_feedback` — the retrieval-feedback store (`kb/08-retrieval/`) | the publish-gate scope. It stores raw query text and this repository is public: what someone was looking for is what they are about to do → [PLAN.md](PLAN.md) §6.1 |
+| The first `kb/literature/` entry | nothing; it is the only KB folder v1 can fill |
+
+### v2 — the simulator, and the acquisition archive
+
+| | Why it waits |
+|---|---|
+| BD adapters (`wiki` · `source` · `entries` · `runs`) | adapters are additive; bolting one on reshapes nothing |
+| **The literature crosswalk** — BD's 42 distillations into the microscope's empty `kb/literature/` | the sharpest gap in the system, and the mapping is already **1→N**: BD files one paper per file with a `provides:` array, the microscope files one quantity per subject, and that array is the decomposition key |
+| `envelope.sqlite` — the quantitative index of 2,343 acquisitions | the records live in `D:\data`, outside every repository → **the two things below** |
+| Turning "query both" into one query | BD calls its two unmerged knowledge schemas *"the largest piece of debt in the repository"*; indexing both is the read-side fix without merging either |
+
+### v3 — research-topic
+
+The `challenge/` entry kind across all three repositories, and the literature
+route's weak resolver: this repository may settle only whether a cited locator
+exists and states the condition, and returns `unknown` otherwise. That is
+checkable, and it answers a weaker question than the challenge asked.
+
+### Migration, when the tools are trusted
+
+The three knowledge bases move here and are then deleted from their
+repositories. **Deletion is the last of five steps and is gated on an
+equivalence proof** — the simulator's full test suite identical, the microscope's
+G1–G32 verdicts character-identical on a fixed input set, and zero dangling
+references. Nothing in either repository reads its KB at runtime, which was
+checked rather than assumed; what breaks is the *audit trail* and the lenses that
+read with `Grep`, and both fail **silently**. → [MIGRATION.md](MIGRATION.md)
+
+### Not planned
+
+Weekly consolidation is deferred by decision; `index_stale` self-reporting
+replaces it, since the refresh itself cannot be deferred. Topic selection and
+the definitions of rigor stay with `research-topic` — doing either here would
+violate this repository's own prohibitions.
+
+---
+
+## Two things to do at the lab PC
+
+**Both are prerequisites for the acquisition archive, and both are still open.**
+The archive is 2,343 acquisitions under `D:\data`, outside every repository.
+
+### 1. Get Librarian running there
+
+```bat
+git clone --depth 1 https://github.com/kyu-softmatter/agentic-microscope.git cache/ms
+pip install -e .
+python -m librarian.cli reindex --repo ms
+```
+
+**Then change `.mcp.json`'s `"command"` from `python3` to `python`.** `python3`
+is not normally on `PATH` on Windows, and the lab machine is the one that has
+the archive. Nothing else is platform-specific: paths in the index are posix and
+SQLite is the only native dependency.
+
+### 2. Decide and build the metadata dump
+
+The dump is what makes the archive ingestible without installing Librarian
+permanently on the lab PC, and it is the reversible half of an open decision
+(run there, or ingest an export → [PLAN.md](PLAN.md) §9 item b).
+
+**The scope needs no designing** — the microscope's `docs/02-knowledge-base.md`
+§7 already fixes it:
+
+| Item | What the spec says |
+|---|---|
+| Size | Up to 44 MB per file. **Stream the header only** — `Summary` + the first `FrameKey` + a 96 kB tail |
+| Two schemas | MM 1.4.23 (2,137 acquisitions, 91 %) differs from 2.0.3 |
+| System identity | Distinguishing by PC name gets it wrong. Use the device-label set plus a camera chip/serial hash |
+| Label typos | `Prime95B` vs `Pirme95B` in 20 acquisitions — an alias table is needed |
+| Folder names | `Las10` = level, `Las488` = wavelength, `Las555_5` = 555 nm at 5 %. An integer in 350–800 is a wavelength |
+| Cheap drop screen | From the tail's `ElapsedTime-ms`: `(last − first) / (n − 1)` is the mean delivered interval, so it exceeds the requested interval exactly when frames went missing. It cannot say **where** or **how many** — that needs every timestamp |
+
+**So three fragments per file, not 44 MB.** At 2,343 files the dump is still
+substantial, which is the argument for writing the extractor before the session
+rather than during it. **Not built.**
+
+---
+
+## Continuous integration
+
+Two jobs, split on what a red build means.
+
+| Job | Runs | Red means |
+|---|---|---|
+| **unit** | no repository clones, on every push | this repository is internally inconsistent — the badge |
+| **integration** | clones the three live remotes | **a source repository moved.** Which is information, not a defect here, so it does not fail the build |
+
+The split is deliberate. The integration tests assert facts about the microscope
+at the commit they were written against — that `G2` is still unimplemented, that
+seven wikilinks still dangle. When one stops holding, someone should look; it
+should not block a change to this repository. The simulator's own CI draws the
+same line.
 
 ---
 
@@ -141,9 +288,6 @@ None of these was read off a sentence that says so.
 | [BUILD.md](BUILD.md) | What has to pass before any data is migrated |
 | [MIGRATION.md](MIGRATION.md) | How the three knowledge bases move here, and in what order |
 | [FEEDBACK.md](FEEDBACK.md) | The retrieval-feedback store, and why "a good answer" cannot be state |
-
-Constraints are inherited rather than invented: the six philosophy items and the
-boundary table in `research-topic` are not this repository's to change alone.
 
 ## Licence
 
