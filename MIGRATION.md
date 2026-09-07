@@ -204,7 +204,8 @@ Measured file counts. **`runs/` and `research-topic` are not migrated.**
 
 ### `research-topic`
 
-**Not migrated.** It stays with proposal and validation. Of the seven entry kinds
+**Not migrated.** It keeps topic selection and the definitions of rigor. Of the
+seven entry kinds
 in `design/kb-schema.md`, Librarian implements only `challenge/` as
 `store/challenge/`; the rest remain RT's.
 

@@ -6,7 +6,7 @@ Grounded in the three live remotes, read 2026-09-06 (§1)
 A knowledge agent that the other three talk to over MCP:
 [agentic-microscope](https://github.com/kyu-softmatter/agentic-microscope) (experiment) ·
 [Brownian-Dynamics-Agent](https://github.com/kyu-softmatter/Brownian-Dynamics-Agent) (simulation) ·
-[research-topic](https://github.com/kyu-softmatter/research-topic) (proposal and validation).
+[research-topic](https://github.com/kyu-softmatter/research-topic) (topic selection).
 
 > **Note on quotations.** BD's contracts (`knowledge/wiki/CLAUDE.md`, its paper
 > distillations, its `entries/` claims) are written in Korean. Quotations from
@@ -20,7 +20,7 @@ Decided 2026-09-06.
 
 | | |
 |---|---|
-| **Identity** | **The fourth axis.** Custody, retrieval and interaction for knowledge. Not `research-topic`'s J1 — that repo stays with **proposal and validation** |
+| **Identity** | **The fourth axis.** Custody, retrieval and interaction for knowledge. Not `research-topic`'s J1 — that repo keeps **J2** (topic selection) and **J3** (the form of a pass condition) |
 | **v1** | **Librarian for the microscope agent only.** Then simulation (BD), then research (RT) |
 | **Data** | Structure first, verified second, migrated third → [BUILD.md](BUILD.md) · [MIGRATION.md](MIGRATION.md) |
 | **Visibility** | **public** — so `publish-gate` (§6.1) moves to Phase 0 |

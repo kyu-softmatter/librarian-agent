@@ -52,8 +52,8 @@ job to a person; the flag is what keeps a forgotten refresh from being silent.
 ```text
                     +-------------------------------------+
                     |            research-topic           |
-                    |  proposal and validation            |
-                    |  topic candidates . rigor axes      |
+                    |  topic selection (J2)               |
+                    |  the form of a pass condition (J3)  |
                     +--+-------------------------------+--+
                        |                               ^
         topics, in falsifiable form                    |   results, dead ends,

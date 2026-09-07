@@ -4,7 +4,8 @@ Drafted 2026-09-06 · status `draft` · supersedes [PLAN.md](PLAN.md) §0 of the
 first draft
 
 Librarian is the **fourth axis**: custody, retrieval and interaction for
-knowledge. `research-topic` stays with proposal and validation. The practical
+knowledge. `research-topic` keeps topic selection and the definitions of
+rigor. The practical
 consequence is one thing — **Librarian owns the content.** The first draft only
 indexed; this one holds the canonical store, and the tree turns on that.
 
