@@ -79,10 +79,29 @@ def test_gates_are_read_from_their_own_docstrings(ms):
 
 # --- drift: the Phase 0 exit condition -------------------------------------
 
-def test_ms_gates_declared_with_a_threshold_but_never_implemented(ms):
-    subjects = {f.subject for f in drift(ms, "ms")
-                if f.check == "gate_declared_not_implemented"}
-    assert subjects == {"ms:G2", "ms:G3", "ms:G4"}
+def test_ms_gates_whose_code_never_names_them(ms):
+    """G2/G3/G4 are implemented and untraceable, which is not the same defect.
+
+    They were reported as `gate_declared_not_implemented` at error severity,
+    and that claim was wrong: `optics/gate.py` enforces all three thresholds --
+    `spectral_collection()`, `excitation_blocking_od()` against
+    `LIMITS["blocking_od"]`, `LIMITS["crosstalk"]` -- exactly as
+    `docs/04-decision-engine.md` says it does. What is true is narrower: the
+    file states its checks as questions and writes no gate id, so nothing in
+    code says which gate is which.
+
+    Left as an error it made drift's non-zero exit meaningless for MS, which is
+    the cost of reporting a traceability gap as a missing implementation.
+    """
+    findings = drift(ms, "ms")
+    assert [f for f in findings if f.check == "gate_declared_not_implemented"] == []
+
+    gates = [f for f in findings if f.check == "gate_not_traceable_to_code"]
+    assert {f.subject for f in gates} == {"ms:G2", "ms:G3", "ms:G4"}
+    assert {f.severity for f in gates} == {"warn"}
+    # The report has to say where the implementation is, or it is the same
+    # unfalsifiable complaint with a softer severity.
+    assert all("optics.gate.evaluate" in f.detail for f in gates)
 
 
 def test_the_exemplar_challenge_entry_cannot_itself_be_challenged(ms):

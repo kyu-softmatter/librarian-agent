@@ -1,11 +1,12 @@
 """Does what is declared still match what exists?
 
-Six file-level checks, none of which needs an adapter -- which is why they run
+Seven file-level checks, none of which needs an adapter -- which is why they run
 over any repository in `cache/`, including ones with no adapter yet. That
 matters for Phase 0's exit condition: the two defects a human found by hand are
 in BD, and a tool that cannot rediscover them is not yet doing anything.
 
   gate_declared_not_implemented   a gate with a threshold in docs and no code
+  gate_not_traceable_to_code      a gate with code that never names it
   generator_missing               a generated file naming a generator that is gone
   declared_count_mismatch         a generated index stating a count that is wrong
   falsifier_missing               an entry that therefore cannot be challenged
@@ -25,6 +26,12 @@ from librarian.md import frontmatter, has_falsifier
 _GATE = re.compile(r"\bG\d+[a-z]?\b")
 # A gate **declared** in a table row, not merely mentioned in prose.
 _GATE_DECL_ROW = re.compile(r"^\|\s*\**(G\d+[a-z]?)\b", re.MULTILINE)
+# `G1–G4`, `G20-G22`: one cell naming a span rather than each id. En-dash is
+# what MS actually writes; hyphen and em-dash cost nothing to accept.
+_GATE_SPAN = re.compile(r"\bG(\d+)\s*[-–—]\s*G?(\d+)\b")
+# A backticked dotted path -- `optics.gate.evaluate`. Anchored on an identifier
+# start so a threshold cell like `< 0.7 ×` cannot look like a symbol.
+_DOTTED = re.compile(r"`([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)`")
 # `<!-- Generated: docs/tools/wiki_index.py -- do not edit by hand -->` and the
 # Korean form BD actually uses.
 _GENERATED = re.compile(
@@ -71,17 +78,102 @@ def _gate_sets(root: Path) -> tuple[set[str], set[str]]:
     return py, md
 
 
+def _defines(text: str, attr: str) -> bool:
+    return re.search(rf"^\s*(?:async\s+def|def|class)\s+{re.escape(attr)}\b",
+                     text, re.MULTILINE) is not None
+
+
+def _symbol_exists(root: Path, dotted: str) -> bool:
+    """Does `optics.gate.evaluate` name something that is actually here?
+
+    Resolved by looking, never by importing -- the stance `generator_missing`
+    already takes toward its generator. A repository under `cache/` is a
+    foreign checkout with its own dependencies, and importing it would run its
+    module bodies to answer a question about a name.
+
+    Where the module path stops and the attribute starts is not known in
+    advance -- `gate` is a module in MS and could be a package elsewhere -- so
+    every split is tried, longest module path first.
+    """
+    parts = dotted.split(".")
+    for i in range(len(parts) - 1, 0, -1):
+        mod, attr = parts[:i], parts[i]
+        for cand in (root.joinpath(*mod).with_suffix(".py"),
+                     root.joinpath(*mod) / "__init__.py"):
+            if cand.is_file() and _defines(_read(cand), attr):
+                return True
+    return False
+
+
+def _gate_impls(root: Path) -> dict[str, tuple[str, str]]:
+    """Gate id -> (the symbol that implements it, the docs file saying so).
+
+    MS `docs/04-decision-engine.md` carries an implementation-status table
+    beside its threshold table:
+
+        | G1–G4 | `optics.gate.evaluate` | ✅ covered by tests |
+
+    That row answers a question id-subtraction cannot ask. `optics/gate.py`
+    implements all four of those gates and names none of them -- it states its
+    checks as questions -- so `md - py` reported four gates as having no code
+    while the code sat one directory away, at error severity. G1 escaped only
+    because four unrelated modules happen to mention it while allocating ids
+    (*"G1-G19 were taken by lenses 1/2/3/4/6/7"*), which is not implementation
+    either.
+
+    A row is believed only as far as it can be checked: the symbol has to
+    resolve to a definition in this repository, or the row is ignored and the
+    gate is still reported as unimplemented. A docs table asserting a function
+    that does not exist earns no credit here.
+    """
+    out: dict[str, tuple[str, str]] = {}
+    docs = root / "docs"
+    for p in sorted(docs.rglob("*.md") if docs.is_dir() else []):
+        rel = p.relative_to(root).as_posix()
+        for line in _read(p).splitlines():
+            if not line.lstrip().startswith("|"):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+            ids = set(_GATE.findall(cells[0]))
+            for lo, hi in _GATE_SPAN.findall(cells[0]):
+                if int(lo) <= int(hi):
+                    ids |= {f"G{n}" for n in range(int(lo), int(hi) + 1)}
+            if not ids:
+                continue
+            for m in _DOTTED.finditer(" ".join(cells[1:])):
+                if _symbol_exists(root, m.group(1)):
+                    for g in ids:
+                        out.setdefault(g, (m.group(1), rel))
+                    break
+    return out
+
+
 def drift(root: Path, repo: str) -> list[Finding]:
     out: list[Finding] = []
     today = _dt.date.today()
 
-    # 1. A gate declared with a threshold, implemented nowhere.
+    # 1. A gate declared with a threshold and not named in code. Two different
+    #    facts, and reporting them as one overstated the weaker: nothing
+    #    implements it at all (error), or something does and no code says which
+    #    gate it is (warn -- a traceability gap, not a missing gate).
     py, md = _gate_sets(root)
+    impl = _gate_impls(root)
     for g in sorted(md - py, key=_GATE_KEY):
-        out.append(Finding(
-            "gate_declared_not_implemented", f"{repo}:{g}",
-            "declared in docs/ with a threshold and a default verdict, and "
-            "named in no Python file", "error"))
+        where = impl.get(g)
+        if where:
+            sym, rel = where
+            out.append(Finding(
+                "gate_not_traceable_to_code", f"{repo}:{g}",
+                f"declared in docs/ with a threshold, implemented by {sym} per "
+                f"{rel}, and named in no Python file -- so no code says which "
+                "gate it is", "warn"))
+        else:
+            out.append(Finding(
+                "gate_declared_not_implemented", f"{repo}:{g}",
+                "declared in docs/ with a threshold and a default verdict, and "
+                "named in no Python file", "error"))
 
     # 2-3. Generated artefacts: is the generator still there, and is the count right?
     for p in sorted(root.rglob("*.md")):

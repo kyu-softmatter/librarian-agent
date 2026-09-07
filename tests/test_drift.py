@@ -72,6 +72,50 @@ def test_a_prose_mention_is_not_a_gate_declaration(tmp_path):
     assert found == ["t:G2"]
 
 
+def test_code_that_implements_a_gate_without_naming_it(tmp_path):
+    """MS reduced: `optics/gate.py` enforces G1-G4 and writes no gate id.
+
+    Subtracting the ids in code from the ids declared in docs cannot tell
+    "nothing implements this" from "the implementation does not label itself",
+    and it reported the second as the first, at error severity. The
+    implementation-status row is what distinguishes them -- but only as far as
+    it can be checked, so a row naming a symbol that is not in the repository
+    earns no credit and the gate is still reported as unimplemented.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "04-decision-engine.md").write_text(_entry("""
+        | # | Gate | Criterion | Default |
+        |---|---|---|---|
+        | G2 | Emission collection | `>= 15%` | BLOCKED |
+        | G3 | Excitation blocking | `>= 5 OD` | BLOCKED |
+
+        | Section | Content | Status |
+        |---|---|---|
+        | G2–G3 | `optics.gate.evaluate` | covered by tests |
+        """), encoding="utf-8")
+
+    # No implementation yet: the docs row points at nothing, so the row is
+    # ignored and both gates stay errors.
+    findings = drift(tmp_path, "t")
+    assert {f.subject for f in findings
+            if f.check == "gate_declared_not_implemented"} == {"t:G2", "t:G3"}
+    assert [f for f in findings if f.check == "gate_not_traceable_to_code"] == []
+
+    # Now the symbol exists, and still no gate id appears anywhere in code.
+    opt = tmp_path / "optics"
+    opt.mkdir()
+    (opt / "gate.py").write_text("def evaluate(channel):\n    return None\n")
+
+    findings = drift(tmp_path, "t")
+    assert [f for f in findings if f.check == "gate_declared_not_implemented"] == []
+    gates = [f for f in findings if f.check == "gate_not_traceable_to_code"]
+    assert {f.subject for f in gates} == {"t:G2", "t:G3"}
+    assert {f.severity for f in gates} == {"warn"}
+    assert all("optics.gate.evaluate" in f.detail
+               and "docs/04-decision-engine.md" in f.detail for f in gates)
+
+
 def test_generated_artefact_outliving_its_generator(tmp_path):
     """The observed case, reduced: a header that forbids editing, and no generator."""
     d = tmp_path / "papers"
