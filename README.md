@@ -149,11 +149,51 @@ All annotated read-only; nothing writes to any repository.
 | Tool | Answers |
 |---|---|
 | `kb_search` | ranked hits under a named caller profile, each with `repo@sha:path#locator` |
+| `kb_inputs` | **what a computation needs, and which of it exists** — the closure over a signature |
 | `kb_get` | one document in full, with both link directions |
 | `kb_neighbors` | one hop in the reference graph |
 | `kb_supplies` | what supplies a field, or what a gate is waiting for |
 | `kb_gaps` | which gate is `BLOCKED`, for want of which input |
 | `kb_stale` | whether the index is behind, and whether what is declared still matches what exists |
+
+### Asking for the inputs to a calculation
+
+An agent's question is usually not *"what do we know about trap stiffness"* —
+`kb_search` answers that — but **"give me what I need to compute trap stiffness
+on this instrument."** Those are different queries, and the second has an answer
+no ranking can reach: it is the closure over a function's signature.
+
+```
+kb_inputs("radial_stiffness_n_per_m")            status: blocked
+
+  unresolved  power_w                <- kb/decisions/2026-08-27-tweezers-first-light
+                                        -measured-limits.md#6-laser-power-is-not-
+                                        reachable-from-software-at-all
+  ready       bead.radius_m          <- data/particles.yaml > diameter_um   3/8
+                                        [alias: halve it, um -> m]
+  unresolved  bead.n                 ?  data/particles.yaml#materials.polystyrene
+  unresolved  medium.n               ?  kb/expertise/sample-medium-refractive-index
+  ready       beam.na                <- data/objectives.yaml > na           6/6
+  unresolved  beam.wavelength_m      ?  data/filters.yaml#filters.OT-Dichroic-750LP
+```
+
+Asked for *the objective list, the laser power per setting, and the sample
+refractive index*, that is the answer: the objective list is there in full
+(6 of 6), the refractive index is a captured prior rather than a registry field
+so it arrives as a citation, and **the laser power is the one the instrument
+cannot supply** — `power_at_sample_mw` is empty for all six sources including
+`Trap`, and the top-ranked document says why: *laser power is not reachable from
+software at all.*
+
+**The closure is derived from the signature, not hand-authored.** A written-down
+input list is the stale-table problem again — it goes wrong the first time an
+argument is added, and nothing notices. Where a name genuinely cannot bridge two
+things (`radius_m` against `diameter_um`, different quantity and different
+units) the link is recorded in [`profiles/_field-aliases.yaml`](profiles/), is
+**verified against the registries on every build**, and a stale one becomes a
+finding. Anything left over is `unresolved` with ranked candidates and the query
+that found them — because `n` is one character, cannot be a search term, and the
+class that declares it can be.
 
 **Retrieval is profiled, and the profile is a versioned file rather than a query
 the model composes.** v1 ships a pair — `ms:lens-5-photo-perturbation` and

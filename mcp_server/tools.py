@@ -171,6 +171,52 @@ def register(server, index_path: Path, profiles_dir: Path,
             idx.close()
 
     @server.tool(annotations=read_only)
+    def kb_inputs(computation: str, repo: str = "ms") -> dict[str, Any]:
+        """What a computation needs, and which of it exists — one call.
+
+        `computation` is a function name in the source repository, e.g.
+        `radial_stiffness_n_per_m`. The answer is the **scalar closure of its
+        signature**: every argument, expanded through the dataclasses it names,
+        with where each one comes from and whether anything supplies it.
+
+        Ask this instead of `kb_search` when the question is *"what do I need in
+        order to compute X"*. Search ranks documents about a topic; this
+        enumerates inputs, and no ranking can reach an answer that is a closure
+        over a signature.
+
+        `status` is `ready`, `blocked` or `unresolved`, and `blocked` outranks
+        `unresolved` because a named missing input is actionable and a missing
+        mapping is not. Per input:
+
+          ready       a registry supplies it, and at least one entry is filled
+          blocked     the field exists and no entry fills it — report the field
+          unresolved  no registry field carries that name and no alias bridges
+                      it. `candidates` holds ranked documents that mention it,
+                      and `candidate_query` says what was searched, because a
+                      one-character field name like `n` cannot be a query and
+                      the class that declares it is searched instead
+
+        `via_alias` means the link needed a recorded mapping rather than a name
+        match — a radius is not a diameter and the units differ. Those aliases
+        are verified against the registries on every build.
+        """
+        idx = _open()
+        try:
+            from librarian.inputs import recipe
+            root = (cache_dir or Path("cache")) / repo
+            if not root.is_dir():
+                return {"status": "no_checkout", "detail": f"cache/{repo} is absent"}
+            r = recipe(root, computation, index=idx,
+                       aliases_path=profiles_dir / "_field-aliases.yaml")
+            if r is None:
+                return {"status": "not_found", "computation": computation,
+                        "detail": f"no function of that name in cache/{repo}"}
+            return r.as_dict()
+        finally:
+            if idx:
+                idx.close()
+
+    @server.tool(annotations=read_only)
     def kb_gaps(missing_only: bool = True) -> dict[str, Any]:
         """Registry coverage: which gate is BLOCKED, for want of which field.
 

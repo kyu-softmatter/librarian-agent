@@ -7,7 +7,8 @@ import pytest
 from librarian.doc import Doc
 from librarian.index import build
 
-TOOLS = {"kb_search", "kb_get", "kb_neighbors", "kb_supplies", "kb_gaps", "kb_stale"}
+TOOLS = {"kb_search", "kb_get", "kb_neighbors", "kb_supplies", "kb_gaps",
+         "kb_stale", "kb_inputs"}
 
 
 def _call(server, name, args=None):
@@ -66,12 +67,15 @@ def test_a_missing_index_is_a_status_not_a_crash(tmp_path):
     s = MCPServer(name="t", version="0")
     tools.register(s, index_path=tmp_path / "absent.sqlite",
                    profiles_dir=tmp_path / "profiles")
-    for name in TOOLS:
+    for name in sorted(TOOLS - {"kb_inputs"}):   # kb_inputs reports a missing
+        # checkout before it reaches the index, so it has its own case below
         args = {"question": "x"} if name == "kb_search" else {}
         if name in {"kb_get", "kb_neighbors"}:
             args = {"uid": "ms:x#y"}
         if name == "kb_supplies":
             args = {"name": "G10"}
+        if name == "kb_inputs":
+            args = {"computation": "radial_stiffness_n_per_m"}
         out = _call(s, name, args)
         assert out["status"] == "no_index", name
         assert "reindex" in out["detail"]

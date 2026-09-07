@@ -474,9 +474,18 @@ class Index:
 
     # -- retrieval ---------------------------------------------------------
 
+    #: At most this many sections of one file in a result set, while a hit from
+    #: another file is available. Measured: asked what limits how long a dye can
+    #: be imaged, `kb/expertise/oil-objective-trapping-in-water.md` took three
+    #: of six slots and the objective registry -- which the question needed --
+    #: was pushed out. bm25 ranks sections independently and has no reason not
+    #: to fill a page with one document.
+    MAX_PER_PATH = 2
+
     def search(self, query: str, profile: "Profile", limit: int = 10,
                current_shas: Optional[dict[str, str]] = None,
-               require: Optional[dict[str, list[str]]] = None) -> SearchResult:
+               require: Optional[dict[str, list[str]]] = None,
+               max_per_path: Optional[int] = None) -> SearchResult:
         long_, short = _terms(query)
         res = SearchResult(
             status="searched_empty", query=query, profile=profile.id,
@@ -519,9 +528,38 @@ class Index:
         # same way -- an oracle over an unstable order tests nothing.
         scored.sort(key=lambda sr: (-sr[0], sr[1]["uid"]))
 
-        res.hits = [_hit(r, s, matched_by) for s, r in scored[:limit]]
+        cap = self.MAX_PER_PATH if max_per_path is None else max_per_path
+        res.hits = [_hit(r, s, matched_by)
+                    for s, r in _diversify(scored, limit, cap)]
         res.status = "ok"
         return res
+
+
+def _diversify(scored: list[tuple[float, sqlite3.Row]], limit: int,
+               cap: int) -> list[tuple[float, sqlite3.Row]]:
+    """Take in rank order, capping sections per file -- then backfill.
+
+    The backfill matters: capping alone would return fewer results than exist,
+    which trades one bad answer for another. Held-back hits are appended in
+    their original order, so the cap only ever *reorders* a full result set.
+    """
+    if cap <= 0:
+        return scored[:limit]
+    taken: list[tuple[float, sqlite3.Row]] = []
+    held: list[tuple[float, sqlite3.Row]] = []
+    seen: dict[str, int] = {}
+    for s, r in scored:
+        if len(taken) >= limit:
+            break
+        n = seen.get(r["path"], 0)
+        if n < cap:
+            seen[r["path"]] = n + 1
+            taken.append((s, r))
+        else:
+            held.append((s, r))
+    if len(taken) < limit:
+        taken += held[: limit - len(taken)]
+    return taken
 
 
 def _hit(r: sqlite3.Row, score: float, matched_by: str) -> Hit:
@@ -583,6 +621,10 @@ class Profile:
     def load(cls, path: Path) -> "Profile":
         import yaml
         d = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if "id" not in d:
+            raise ValueError(
+                f"{path} has no `id`, so it is not a caller profile. "
+                "Prefix a non-profile file with `_` to keep it out of this glob.")
         boost = d.get("boost") or {}
         return cls(
             id=str(d["id"]),
@@ -600,8 +642,17 @@ NEUTRAL = Profile(id="neutral")
 
 
 def load_profiles(directory: Path) -> dict[str, Profile]:
+    """Every caller profile in a directory.
+
+    Files beginning with `_` are not profiles -- the convention is the
+    microscope's, for the same reason: `_field-aliases.yaml` sits beside them
+    and is configuration of a different kind, and loading it as a profile
+    raised a `KeyError` on a missing `id` rather than saying so.
+    """
     out = {NEUTRAL.id: NEUTRAL}
     for p in sorted(directory.glob("*.yaml")):
+        if p.name.startswith("_"):
+            continue
         prof = Profile.load(p)
         out[prof.id] = prof
     return out

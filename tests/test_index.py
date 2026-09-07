@@ -194,3 +194,73 @@ def test_profile_yaml_round_trips(tmp_path):
     assert p.kind_weight == {"registry": 1.5}
     assert p.boost_gate == ("G10",) and p.boost_field == ("bleach_photons",)
     assert p.demote == {"reproduced": {"no": 0.7}}
+
+
+# --- result diversity ------------------------------------------------------
+
+def test_one_file_cannot_fill_the_result_set(tmp_path):
+    """Measured on the real corpus: one entry took three of six slots.
+
+    Asked what limits how long a dye can be imaged,
+    `kb/expertise/oil-objective-trapping-in-water.md` supplied three of six
+    hits and the registry the question needed was pushed out. bm25 ranks
+    sections independently and has no reason not to fill a page with one file.
+    """
+    docs = [
+        Doc(repo="ms", path="kb/one.md", locator=f"s{i}", commit_sha=SHA,
+            kind="expertise", title=f"trap section {i}",
+            body="trap stiffness objective magnification " * 3)
+        for i in range(5)
+    ] + [
+        Doc(repo="ms", path="data/objectives.yaml", locator="objectives.60x",
+            commit_sha=SHA, kind="registry", title="objectives > 60x-Oil",
+            body="magnification 60 na 1.4 trap"),
+        Doc(repo="ms", path="kb/two.md", locator="verdict", commit_sha=SHA,
+            kind="expertise", title="trap notes", body="trap stiffness"),
+    ]
+    p = tmp_path / "kb.sqlite"
+    build(docs, p, {"ms": SHA})
+    idx = Index(p)
+    try:
+        hits = idx.search("trap stiffness objective magnification",
+                          Profile(id="t"), limit=4).hits
+        paths = [h.uid.split("#")[0] for h in hits]
+        assert paths.count("ms:kb/one.md") <= idx.MAX_PER_PATH
+        assert len(hits) == 4, "capping must not shrink a full result set"
+        assert len(set(paths)) >= 2
+    finally:
+        idx.close()
+
+
+def test_capping_backfills_rather_than_returning_fewer(tmp_path):
+    """When only one file matches, the cap must not withhold results."""
+    docs = [Doc(repo="ms", path="kb/only.md", locator=f"s{i}", commit_sha=SHA,
+                kind="expertise", title=f"section {i}", body="stiffness")
+            for i in range(6)]
+    p = tmp_path / "kb.sqlite"
+    build(docs, p, {"ms": SHA})
+    idx = Index(p)
+    try:
+        assert len(idx.search("stiffness", Profile(id="t"), limit=5).hits) == 5
+    finally:
+        idx.close()
+
+
+def test_a_non_profile_yaml_is_skipped_rather_than_crashing(tmp_path):
+    """`_field-aliases.yaml` sits beside the profiles and is not one.
+
+    Loading it as a profile raised a KeyError on a missing `id`. Files
+    beginning with `_` are not profiles -- the microscope's convention, for the
+    same reason.
+    """
+    from librarian.index import load_profiles
+    d = tmp_path / "profiles"
+    d.mkdir()
+    (d / "_field-aliases.yaml").write_text("aliases:\n  radius_m: {registry: r, field: f}\n")
+    (d / "real.yaml").write_text("id: ms:test\nkind_weight: {registry: 2.0}\n")
+    profiles = load_profiles(d)
+    assert set(profiles) == {"neutral", "ms:test"}
+
+    (d / "broken.yaml").write_text("kind_weight: {registry: 2.0}\n")
+    with pytest.raises(ValueError, match="no `id`"):
+        load_profiles(d)

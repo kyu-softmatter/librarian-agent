@@ -1,0 +1,24 @@
+# Where a computation's parameter name and a registry's field name are the same
+# quantity under different names or units.
+#
+# **Verified on every build, never trusted.** An alias whose registry or field
+# has disappeared becomes an `alias_field_missing` finding rather than a silent
+# failure to resolve — the same discipline as a hand-maintained `implemented_in`
+# table, which is the thing that goes stale first.
+#
+# Add an entry only when no string comparison could honestly bridge the two. A
+# leaf with no alias and no name match is reported as `unresolved` with search
+# candidates, which is a weaker answer and an honest one.
+
+aliases:
+  radius_m:
+    registry: data/particles.yaml
+    field: diameter_um
+    note: "data/particles.yaml > diameter_um -- divide by 2 and convert um -> m.
+      A radius is not a diameter and the units differ, so no name match should
+      be allowed to claim these are the same field."
+
+# Removed: `viscosity_pa_s -> stock_medium`. That alias resolved a value to a
+# *pointer* -- `stock_medium` names the medium, and the viscosity is not
+# registered anywhere -- and marking it resolved reported `ok` for an input
+# nothing supplies. An alias has to reach the quantity, not its neighbourhood.

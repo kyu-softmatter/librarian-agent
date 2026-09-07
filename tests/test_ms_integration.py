@@ -124,10 +124,18 @@ def test_bd_index_defects_are_rediscovered(bd):
 # --- search: the Phase 1 acceptance criterion -------------------------------
 
 def _index(ms, tmp_path):
+    """The index as `reindex` builds it -- docs, links and gaps.
+
+    Building only the documents left `kb_supplies` with no coverage rows, so a
+    test of it passed vacuously against an index the CLI never produces.
+    """
+    from librarian.gaps import gaps as compute_gaps
     from librarian.index import Index, build
+    from librarian.links import extract
     rep = scan(ms)
+    links = extract(rep.docs, rep.repo_files, rep.source_text)
     p = tmp_path / "kb.sqlite"
-    build(rep.docs, p, {"ms": rep.sha})
+    build(rep.docs, p, {"ms": rep.sha}, links, compute_gaps(ms))
     return Index(p), rep.sha
 
 
@@ -164,8 +172,19 @@ def test_the_two_lens_profiles_return_different_answers(ms, tmp_path):
 
         assert len(top5) == len(top4) == 3
         assert set(top5).isdisjoint(top4), f"profiles agree: {top5}"
-        assert all("kb/literature" in u for u in top5)
-        assert all("kb/expertise" in u for u in top4)
+
+        # The two land in different corpora. Asserted on the leading hit rather
+        # than on all three: an earlier version pinned all three to one folder,
+        # which encoded a result set from before per-file capping existed, and
+        # broke when capping let a second source in -- an improvement failing a
+        # test is the test's fault.
+        assert "kb/literature" in top5[0]
+        assert "kb/expertise" in top4[0]
+
+        # And no single file fills a result set.
+        for top in (top5, top4):
+            files = [u.split("#")[0] for u in top]
+            assert max(files.count(f) for f in files) <= idx.MAX_PER_PATH
     finally:
         idx.close()
 
@@ -202,3 +221,74 @@ def test_a_two_character_query_survives_the_real_corpus(ms, tmp_path):
         assert n_glob < n_like / 3
     finally:
         idx.close()
+
+
+# --- the input closure, on the real repository ------------------------------
+
+def test_trap_stiffness_inputs_resolve_where_the_repository_declares_them(ms, tmp_path):
+    """The worked example: what is needed to compute trap stiffness here.
+
+    Objective list, laser power per setting, sample refractive index -- the
+    three things an agent asks for. Two resolve structurally; the one that does
+    not is the interesting answer.
+    """
+    from pathlib import Path
+
+    from librarian.inputs import recipe
+
+    idx, sha = _index(ms, tmp_path)
+    try:
+        r = recipe(ms, "radial_stiffness_n_per_m", index=idx,
+                   aliases_path=Path(__file__).resolve().parent.parent
+                   / "profiles" / "_field-aliases.yaml")
+        assert r is not None
+        assert r.location == "ms:trapping/goa.py#radial_stiffness_n_per_m"
+        leaves = {l.path: l for l in r.leaves}
+
+        # the objective list, which is what the question is parameterised over
+        na = leaves["beam.na"]
+        assert na.status == "ready"
+        assert na.supplied_by[0]["registry"] == "data/objectives.yaml"
+        assert na.supplied_by[0]["filled"] == na.supplied_by[0]["total"] == 6
+
+        # a radius is not a diameter and the units differ, so this needs the alias
+        rad = leaves["bead.radius_m"]
+        assert rad.status == "ready" and rad.via_alias
+        assert rad.supplied_by[0]["field"] == "diameter_um"
+
+        # the refractive index is a captured prior, not a registry field, so it
+        # arrives as a candidate -- found by searching what declares it, since
+        # `n` is one character
+        n = leaves["medium.n"]
+        assert n.status == "unresolved"
+        assert any("sample-medium-refractive-index" in c for c in n.candidates)
+        assert "medium" in n.candidate_query
+
+        # and the laser power is the one the instrument cannot supply
+        assert leaves["power_w"].status == "unresolved"
+        assert any("tweezers-first-light" in c for c in leaves["power_w"].candidates)
+    finally:
+        idx.close()
+
+
+def test_the_trap_laser_power_field_is_blocked_everywhere(ms, tmp_path):
+    """`power_at_sample_mw` is empty for all six sources, `Trap` among them."""
+    idx, _ = _index(ms, tmp_path)
+    try:
+        out = idx.supplies("power_at_sample_mw")
+        assert out["status"] == "blocked"
+        assert out["coverage"][0]["filled"] == 0
+        assert any(e["entry"].endswith(".Trap") for e in out["entries"])
+    finally:
+        idx.close()
+
+
+def test_the_recorded_aliases_all_still_point_at_something(ms):
+    """A stale alias is a finding, so the suite fails when one goes stale."""
+    from pathlib import Path
+
+    from librarian.inputs import load_aliases, registry_keys, verify_aliases
+    aliases = load_aliases(Path(__file__).resolve().parent.parent
+                           / "profiles" / "_field-aliases.yaml")
+    assert aliases, "the alias file should not be empty"
+    assert verify_aliases(aliases, registry_keys(ms)) == []

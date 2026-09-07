@@ -106,6 +106,19 @@ def _broken_link_findings(links) -> list:
     ]
 
 
+def _alias_findings(root: Path) -> list:
+    """A recorded field alias whose target has disappeared.
+
+    Aliases bridge the places a name cannot -- `radius_m` against the registry's
+    `diameter_um` -- and a hand-maintained mapping is the thing that goes stale
+    first. Verified on every build, so a stale one is a finding rather than a
+    leaf that quietly stops resolving.
+    """
+    from librarian.inputs import load_aliases, registry_keys, verify_aliases
+    return verify_aliases(load_aliases(PROFILES / "_field-aliases.yaml"),
+                          registry_keys(root))
+
+
 def cmd_reindex(args) -> int:
     from librarian.drift import drift
     from librarian.gaps import gaps as compute_gaps
@@ -121,7 +134,8 @@ def cmd_reindex(args) -> int:
             return 1
         ls = extract(rep.docs, rep.repo_files, rep.source_text)
         gs = compute_gaps(_root(repo))
-        fs = drift(_root(repo), repo) + _broken_link_findings(ls)
+        fs = (drift(_root(repo), repo) + _broken_link_findings(ls)
+              + _alias_findings(_root(repo)))
         docs += rep.docs
         links += ls
         gap_rows += gs
@@ -295,6 +309,47 @@ def cmd_archive_dump(args) -> int:
     return 0
 
 
+def cmd_inputs(args) -> int:
+    import json
+
+    from librarian.index import Index
+    from librarian.inputs import recipe
+    idx = Index(INDEX) if INDEX.exists() else None
+    try:
+        r = recipe(_root(args.repo), args.computation, index=idx,
+                   aliases_path=PROFILES / "_field-aliases.yaml")
+    finally:
+        if idx:
+            idx.close()
+    if r is None:
+        print(f"not_found: no function named {args.computation!r} in cache/{args.repo}")
+        return 1
+    if args.json:
+        print(json.dumps(r.as_dict(), indent=2, ensure_ascii=False))
+        return 0
+
+    print(f"{r.computation}   status={r.status}")
+    print(f"  {r.location}")
+    print(f"  {r.signature}")
+    if r.summary:
+        print(f"  {r.summary[:150]}")
+    print()
+    mark = {"ready": "ok      ", "blocked": "BLOCKED ", "unresolved": "unresolved"}
+    for l in r.leaves:
+        opt = " (optional)" if l.optional else ""
+        print(f"  {mark[l.status]:11s} {l.path:24s} {l.type:16s}{opt}")
+        for s in l.supplied_by:
+            f, tt = s.get("filled"), s.get("total")
+            cov = f"  {f}/{tt}" if f is not None else ""
+            print(f"              <- {s['registry']} > {s['field']}{cov}"
+                  + ("   [via alias]" if l.via_alias else ""))
+        if l.via_alias:
+            print(f"                 {l.via_alias[:96]}")
+        for c in l.candidates:
+            print(f"              ?  {c}")
+    return 0
+
+
 def cmd_drift(args) -> int:
     from librarian.drift import drift
     findings = []
@@ -393,6 +448,13 @@ def main(argv=None) -> int:
     ad.add_argument("--limit", type=int, default=None,
                     help="stop after N files -- use it for a first pass")
     ad.set_defaults(fn=cmd_archive_dump)
+
+    inp = sub.add_parser("inputs",
+                         help="what a computation needs, and which of it exists")
+    inp.add_argument("computation", help="a function name, e.g. radial_stiffness_n_per_m")
+    inp.add_argument("--repo", default="ms")
+    inp.add_argument("--json", action="store_true")
+    inp.set_defaults(fn=cmd_inputs)
 
     d = sub.add_parser("drift", help="does what is declared still match what exists")
     d.add_argument("--repo", action="append", default=None)
