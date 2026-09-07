@@ -19,10 +19,31 @@ Hard-code a path and the next folder rename produces a silently empty read.
 | BD `runs/` | `bdbot.record/0.1` — index only, never migrated | v2 |
 | RT `design/` | `kb-schema.md` §4.1-4.7 | v3 |
 
+## Built, and what it produces
+
+Measured against `agentic-microscope` @ `196cdf1`:
+
+| Adapter | Files | Documents |
+|---|---|---|
+| `ms_kb` | 37 | 267 |
+| `ms_data` | 7 | 83 |
+| `ms_docs` | 10 | 119 |
+| `ms_agents` | 5 | 75 |
+| **total** | **59** | **544** |
+
+    python -m librarian.cli scan --repo ms
+
+The analyses that consume these live one level up, in `librarian/`, because they
+ask questions **across** sources rather than parsing any one of them:
+`gaps.py` (which gate is BLOCKED for want of which field) and `drift.py` (does
+what is declared still match what exists).
+
 ## The assertion every adapter carries
 
-**A non-zero document count for its source.** A source that drops to zero fails
-the build rather than reporting nothing.
+**A non-zero document count for its source**, and coverage checked **from
+outside** the adapter: candidate files are enumerated independently in
+`librarian/scan.py`, and any candidate that produced no document is reported. An
+adapter that counted its own output would pass while silently dropping a folder.
 
 This is not defensive habit. BD recorded the accident: `tools/kb.py` pointed at a
 renamed path and *"simply reported 'run-less knowledge 0' for 126 existing

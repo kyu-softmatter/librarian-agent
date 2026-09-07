@@ -59,6 +59,16 @@ nothing to count against.
 crossed: empty fields in `data/*.yaml` × the field each gate requires × the
 blocker list in `docs/07`. Joining those three is the adapter's job.
 
+**Built 2026-09-06** (`python -m librarian.cli gaps --repo ms`). It derives both
+blockers from the files, reading neither of the prose statements above:
+
+| registry | field | gate | filled / total |
+|---|---|---|---|
+| `data/fluorophores.yaml` | `bleach_photons` | **G10** | **0 / 17** |
+| `data/light_sources.yaml` | `power_at_sample_mw` | — | **0 / 6** |
+| `data/fluorophores.yaml` | `lifetime_ns` | G20 | 11 / 17 |
+| `data/particles.yaml` | `source` | — | 4 / 8 |
+
 **② `kb/literature/` — the first entry.** Currently **0 entries**, with a README
 and `_template.md` waiting. MS's own words: *"what sits in this folder is exactly
 what is worth measuring next."* It is the only KB folder v1 can fill.
@@ -213,6 +223,37 @@ Checked by grep over code, tests and agent definitions.
 **The real consumers are LLM agents and humans, not code** — and the MS lenses
 read with `tools: Read, Grep, Glob`, with **no MCP tool declared.**
 → [MIGRATION.md](MIGRATION.md) §1 · §3
+
+### 1.8 What the first scan found — 2026-09-06
+
+Running the four MS adapters and the drift report over `agentic-microscope`
+@ `196cdf1` produced **544 documents from 59 files**, with every candidate file
+accounted for, and four findings.
+
+| Finding | Detail |
+|---|---|
+| **`G2` · `G3` · `G4` are declared and not implemented** | `docs/04-decision-engine.md` gives each a threshold and `BLOCKED` as its default (`G2` emission collection `>= 15%`, `G3` excitation blocking `>= 5 OD`, `G4` crosstalk `< 5%`) and `docs/05` repeats them. **None appears in any Python file.** They are the optics spectral gates, and `optics/checks.py` states its checks as questions — *"Does this line actually excite this dye through this path?"* — carrying no gate id, so nothing ties the implementation to the declaration |
+| **The exemplar challenge entry cannot be challenged** | `kb/expertise/oil-objective-trapping-in-water.md` is the entry rt README §2.2 holds up as *"a challenge that was upheld."* It has `evidence: measured`, `review_after`, `supersedes: null` — and **no falsification section**, where five of the six entries beside it have one. By `kb-schema.md` §4.7 an entry with no falsifier cannot be challenged, so the model case is exempt from the rule it models |
+| **`bleach_photons` is absent for all 17 dyes** | G10 has nothing to count against, as `photo/gate.py` says. Derived, not read |
+| **`power_at_sample_mw` is empty for all 6 sources** | The key exists on almost every line and its value is `{}`. `docs/07` Phase 0 calls it the top blocker |
+
+**Three of the four are about the gap between a declaration and its
+implementation**, which is what `kb-schema.md` §6 left open as *"detecting when
+`rigor/` drifts from BD's and MS's real files."* None of them was found by
+reading a sentence that says so.
+
+> **The report is only useful if it is short.** Four false-positive classes were
+> removed while building it, and each cost more than it looked like:
+>
+> | Removed | What it did |
+> |---|---|
+> | Key existence read as presence | Reported `power_at_sample_mw` as supplied by 5 of 6 sources — the opposite of the truth |
+> | Bare identifiers read as field reads | Attributed `data/particles.yaml > product` to G11 because that gate's function has a local called `product` |
+> | Two examples read as a folder convention | Reported 18 of 20 decision logs as missing a falsifier, burying the one entry that matters |
+> | A prose mention read as a declaration | Reported six of **MS's** gates as missing from BD, because BD's roadmap discusses the handoff in prose |
+>
+> The last two are the same failure in different clothes: **a linter that reports
+> everything reports nothing.** Each is now a regression test.
 
 ---
 

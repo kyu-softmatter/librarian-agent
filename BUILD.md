@@ -63,16 +63,26 @@ claim that was never checked.
 | **F1** | The evidence tier lives in **both path and field**, and a disagreement is caught ([TREE.md](TREE.md) §4) | MS `kb/calibrations/camera-readout.yaml` (measured) + a copy deliberately mis-filed as `evidence: assumed` under `measured/` | ✅ |
 | **F2** | BD paper → MS quantity decomposition is **1→N** ([PLAN.md](PLAN.md) §1.4) | BD `1995-mason-weitz-gser-microrheology.md` — `provides: [gser-formula, msd-to-moduli, newtonian-limit-check]` → 3 files | v2 |
 | **F3** | The `05`/`06` boundary is settled by the **engine-swap test** ([TREE.md](TREE.md) §2-B) | BD `wiki/concepts/water-298k.md` (→05) + one `wiki/systems/` card (→06) | v2 |
-| **F4** | `has_falsifier = 0` produces an **entry-defect report** | MS `kb/expertise/oil-objective-trapping-in-water.md` (has one) + MS `kb/systems/PyTool-RUN-FIRST.md` (has none) | ✅ |
+| **F4** | `has_falsifier = 0` produces an **entry-defect report** | MS `kb/expertise/` — 5 of 6 entries carry `## Falsification conditions`; `oil-objective-trapping-in-water.md` does not | ✅ |
 | **F5** | A challenge **routes by falsifier type** | The same oil-objective entry — rt README §2.2 records it as *"a challenge that was upheld"* | ✅ |
 | **F6** | Retrieval works over a mixed Korean/English corpus | One BD paper distillation body (Korean) inserted **as a tokenizer test only**, with no BD adapter | ✅ |
 | **F7** | Decay of a derived artefact is **detected automatically** ([PLAN.md](PLAN.md) §1.2) | BD `source/papers/INDEX.md` — missing generator, 40 vs 42. A file-level check, so no adapter is needed | ✅ |
 | **F8** | `caller_profile` **actually changes results** ([PLAN.md](PLAN.md) §5.1) | The same question under `ms:lens-5-photo-perturbation` and `ms:lens-4-sample-optics` | ✅ |
 | **F9** | An oracle **really catches a regression** ([FEEDBACK.md](FEEDBACK.md) §5) | Build one oracle, then break the profile on purpose — **the test must fail** | ✅ |
 
-**F4 and F5 share a file deliberately.** That one entry carries a falsifier, a
-`review_after` of 2027-08-18, a `supersedes` slot and a resolved challenge, so it
-is the only real specimen that exercises the whole round trip.
+**F4 and F5 share a file deliberately, and running it corrected the claim made
+here.** The fixture was written expecting
+`kb/expertise/oil-objective-trapping-in-water.md` to *carry* a falsifier. It does
+not — it has `evidence: measured`, `review_after: 2027-08-18`, `supersedes: null`
+and three sections, none of them a falsification condition, while five of the six
+entries beside it have one.
+
+**That makes the specimen sharper than intended.** rt README §2.2 holds this
+entry up as *"a challenge that was upheld"* — the model case for the whole
+retirement mechanism — and by `kb-schema.md` §4.7 the entry itself **cannot be
+challenged**, because an entry with no falsifier has nothing to cite. The
+exemplar is exempt from the rule it exemplifies. That is a defect in the entry
+rather than a gap in the mechanism, which is exactly what the check is for.
 
 **F6 is kept in v1 although BD is not adapted until v2.** The tokenizer is chosen
 in v1 (§3) and fixed at table-creation time, so the choice has to be verified
