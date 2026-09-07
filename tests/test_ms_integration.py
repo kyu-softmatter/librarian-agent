@@ -104,17 +104,25 @@ def test_ms_gates_whose_code_never_names_them(ms):
     assert all("optics.gate.evaluate" in f.detail for f in gates)
 
 
-def test_the_exemplar_challenge_entry_cannot_itself_be_challenged(ms):
-    """`kb/expertise/oil-objective-trapping-in-water.md` carries no falsifier.
+def test_every_ms_claim_entry_can_now_be_challenged(ms):
+    """The finding was reported, and then it was fixed at the source.
 
-    research-topic README 2.2 holds this entry up as *"a challenge that was
-    upheld"* -- the model case for the whole retirement mechanism. It has
-    `supersedes: null` and a `review_after`, and no falsification section, so by
-    `kb-schema.md` 4.7 it is not challengeable. Five of the six entries beside
-    it carry one.
+    `kb/expertise/oil-objective-trapping-in-water.md` carried no falsifier,
+    which mattered because research-topic README 2.2 holds that entry up as *"a
+    challenge that was upheld"* -- the model case for the whole retirement
+    mechanism -- while by `kb-schema.md` 4.7 it was the one entry in its folder
+    that could not itself be challenged. It gained a `## Falsification
+    conditions` section in MS `c147438`, so the count is zero.
+
+    Asserting zero rather than deleting this test, because a check nobody
+    exercises against the real repository stops being trusted, and because
+    zero is the state a source repository is supposed to reach. Detection of a
+    missing falsifier is still covered by
+    `test_falsifier_convention_is_set_by_the_majority`, which builds the case
+    synthetically and does not depend on MS staying defective.
     """
     subjects = {f.subject for f in drift(ms, "ms") if f.check == "falsifier_missing"}
-    assert subjects == {"ms:kb/expertise/oil-objective-trapping-in-water.md"}
+    assert subjects == set()
 
 
 def test_bd_index_defects_are_rediscovered(bd):
