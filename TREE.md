@@ -148,7 +148,8 @@ librarian-agent/
 │   └── inbox/                 LLM proposals awaiting human approval
 │
 ├── profiles/              caller_profile YAML → PLAN.md §5.1
-├── librarian/             the package: doc model · scan · gaps · drift · cli
+├── librarian/             the package: doc model · scan · gaps · drift · index ·
+│                       links · archive · cli
 ├── adapters/              one parser per repo contract
 ├── tests/                 unit + integration; Phase 0's exit condition is asserted
 ├── mcp_server/            the MCP server (not `mcp_server/` -- that name shadows the SDK)

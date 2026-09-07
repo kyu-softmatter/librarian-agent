@@ -222,7 +222,8 @@ violate this repository's own prohibitions.
 
 ## Two things to do at the lab PC
 
-**Both are prerequisites for the acquisition archive, and both are still open.**
+**Both are prerequisites for the acquisition archive.** The tooling is built; what
+is open is running it against real files.
 The archive is 2,343 acquisitions under `D:\data`, outside every repository.
 
 ### 1. Get Librarian running there
@@ -238,27 +239,63 @@ is not normally on `PATH` on Windows, and the lab machine is the one that has
 the archive. Nothing else is platform-specific: paths in the index are posix and
 SQLite is the only native dependency.
 
-### 2. Decide and build the metadata dump
+### 2. Run the dump — sample one file first
 
-The dump is what makes the archive ingestible without installing Librarian
-permanently on the lab PC, and it is the reversible half of an open decision
-(run there, or ingest an export → [PLAN.md](PLAN.md) §9 item b).
+**Built.** `librarian/archive.py`, and two commands.
 
-**The scope needs no designing** — the microscope's `docs/02-knowledge-base.md`
-§7 already fixes it:
+```bat
+librarian archive-sample "D:\data\<one folder>\metadata.txt" --out sample.txt
+```
 
-| Item | What the spec says |
-|---|---|
-| Size | Up to 44 MB per file. **Stream the header only** — `Summary` + the first `FrameKey` + a 96 kB tail |
-| Two schemas | MM 1.4.23 (2,137 acquisitions, 91 %) differs from 2.0.3 |
-| System identity | Distinguishing by PC name gets it wrong. Use the device-label set plus a camera chip/serial hash |
-| Label typos | `Prime95B` vs `Pirme95B` in 20 acquisitions — an alias table is needed |
-| Folder names | `Las10` = level, `Las488` = wavelength, `Las555_5` = 555 nm at 5 %. An integer in 350–800 is a wavelength |
-| Cheap drop screen | From the tail's `ElapsedTime-ms`: `(last − first) / (n − 1)` is the mean delivered interval, so it exceeds the requested interval exactly when frames went missing. It cannot say **where** or **how many** — that needs every timestamp |
+**Do this one first, and read it.** No real Micro-Manager file was available
+while the extractor was written, so the `Summary` block's device-tier key names
+and nesting are unverified. A sweep run first applies a guessed parser 2,343
+times; a sample turns the guess into a diff. It prints what it found — the
+Summary key set, whether the first `FrameKey` was reached, the fingerprint, the
+camera label, the parsed folder name — and writes the three fragments verbatim
+for reading.
 
-**So three fragments per file, not 44 MB.** At 2,343 files the dump is still
-substantial, which is the argument for writing the extractor before the session
-rather than during it. **Not built.**
+```bat
+librarian archive-dump "D:\data" --out archive-dump.jsonl --limit 20
+librarian archive-dump "D:\data" --out archive-dump.jsonl
+```
+
+One JSON object per line, sorted by path, so a repeated sweep produces the same
+file. Then bring `archive-dump.jsonl` back; nothing else has to leave the lab PC.
+
+**What it reads** — the three fragments `docs/02-knowledge-base.md` §7 fixes:
+`Summary`, the first `FrameKey`, and a 96 kB tail. A file at or under 96 kB is
+read whole because the head stops at the first `FrameKey`, and leaving the tail
+empty there loses the last timestamp and with it the drop screen.
+
+**What it fills, and what it admits it cannot.**
+
+| Verified | Provisional | Unresolved |
+|---|---|---|
+| `interval_ms` · `frames` · `width` · `height` · `bit_depth` — the microscope's own regexes, written against real files | the system fingerprint (the key set, not yet the device-label set plus camera serial hash the spec asks for) | the whole device tier — 20 fields `docs/02` §6 declares |
+| the drop screen: mean delivered interval against the requested one | the camera label, with `Pirme95B` folded into `Prime95B` | |
+| the folder-name rules: `Las10` = level, `Las488` = wavelength, `Las555_5` = 555 nm at 5 % | | |
+
+**Every row carries `unresolved`** — the list of fields looked for and not found
+— and the whole `Summary` verbatim in `raw_summary`, so nothing is lost while the
+device tier is still a guess. The dump's header records which commit of the
+microscope's parser was used.
+
+**A file that yields nothing is recorded, not skipped.** MM 2.0's NDTiff format
+carries no `metadata.txt` at all, so such a dataset scans as zero frames, and a
+silently absent row is indistinguishable from a clean acquisition. `docs/02` §6
+has a `parse_error` column for exactly this.
+
+> **The parser is imported from `cache/ms`, not copied.** The microscope's
+> `compute/mm_metadata.py` already tolerates what the files do — MM 1.4 quotes
+> its numbers, neither generation guarantees pretty-printing — and a vendored
+> copy that drifts from the one it maintains is worse than none, because the
+> drift is silent. It is loaded by file path rather than by putting the checkout
+> on `sys.path`: the microscope has its own `mcp_server/` package, and
+> prepending its root shadows this repository's.
+
+**Still v2:** turning the dump into `kb/envelope.sqlite`. That schema is the
+microscope's design and needs the device tier the sample will settle.
 
 ---
 

@@ -252,6 +252,49 @@ def cmd_neighbors(args) -> int:
     return 0
 
 
+def cmd_archive_sample(args) -> int:
+    import json
+
+    from librarian.archive import sample
+    out = Path(args.out) if args.out else None
+    try:
+        rep = sample(Path(args.path), out)
+    except OSError as e:
+        sys.exit(str(e))
+    print(json.dumps({k: v for k, v in rep.items() if k != "summary_keys"},
+                     indent=2, ensure_ascii=False))
+    print(f"\nsummary keys found ({len(rep['summary_keys'])}):")
+    for k in rep["summary_keys"][:60]:
+        print(f"  {k}")
+    if len(rep["summary_keys"]) > 60:
+        print(f"  ... and {len(rep['summary_keys']) - 60} more")
+    if out:
+        print(f"\nfragments written verbatim to {out}")
+        print("Read them before running archive-dump: the device-tier key names "
+              "are unverified, and a sweep would apply a guessed parser to every "
+              "file.")
+    return 0
+
+
+def cmd_archive_dump(args) -> int:
+    import json
+
+    from librarian.archive import ArchiveError, dump
+    try:
+        rep = dump(Path(args.root), Path(args.out), CACHE / "ms", limit=args.limit)
+    except ArchiveError as e:
+        sys.exit(str(e))
+    print(json.dumps({k: v for k, v in rep.items() if k != "unresolved"},
+                     indent=2, ensure_ascii=False))
+    print("\nfields looked for and not found (count of files):")
+    for k, n in rep["unresolved"].items():
+        print(f"  {n:6d}  {k}")
+    print("\nEach line above is a field docs/02 section 6 declares and this "
+          "draft could not fill.\nThe sample file turns that list into the diff "
+          "to apply.")
+    return 0
+
+
 def cmd_drift(args) -> int:
     from librarian.drift import drift
     findings = []
@@ -336,6 +379,20 @@ def main(argv=None) -> int:
     nb.add_argument("--direction", default="out", choices=["out", "in", "both"])
     nb.add_argument("--json", action="store_true")
     nb.set_defaults(fn=cmd_neighbors)
+
+    asa = sub.add_parser("archive-sample",
+                         help="one acquisition's header fragments, verbatim -- run this first")
+    asa.add_argument("path", help="path to one metadata.txt")
+    asa.add_argument("--out", default=None, help="write the fragments to a file")
+    asa.set_defaults(fn=cmd_archive_sample)
+
+    ad = sub.add_parser("archive-dump",
+                        help="every acquisition header under a root, as JSONL")
+    ad.add_argument("root", help=r"the archive root, e.g. D:\data")
+    ad.add_argument("--out", default="archive-dump.jsonl")
+    ad.add_argument("--limit", type=int, default=None,
+                    help="stop after N files -- use it for a first pass")
+    ad.set_defaults(fn=cmd_archive_dump)
 
     d = sub.add_parser("drift", help="does what is declared still match what exists")
     d.add_argument("--repo", action="append", default=None)
