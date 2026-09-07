@@ -113,13 +113,14 @@ kept apart.
 | BD `knowledge/entries/*.json` | **135** |
 | BD `knowledge/source/papers/*.md` | **42** (+ `INDEX.md`) |
 | BD `knowledge/source/books/` | **2** |
-| BD `knowledge/wiki/**/*.md` | **44** (benchmarks 5 · concepts 3 · findings 23 · questions 2 · systems 11 · techniques 2) |
-| BD `runs/*/record.json` | **256** |
+| BD `knowledge/wiki/**/*.md` | **44** files, including the contract (benchmarks 5 · concepts 3 · findings 23 · questions 2 · systems 11 · techniques 2). **Entries** are fewer: `_`-prefixed templates and indexes make findings 22 and systems 9, and `benchmarks.yaml` lists **7 running** benchmarks rather than 5 files |
+| BD `runs/*/record.json` | **227**, in **256** run directories |
 | MS `kb/` | **40** (calibrations 4 · decisions 20 · expertise 6 · literature **2 = README + template only** · systems 8) |
-| **Total** | **~520 documents** |
+| **Total** | **490 files** — and one file is many documents: MS's 59 files yield 513 indexed rows, because a section is the citable unit |
 
 BD `tools/kb.py` notes: *"A SQLite + FTS5 store is the plan, but it is overkill
-below 100 runs."* **There are 256 runs.** That threshold has passed — but it
+below 100 runs."* **There are 227 post-mortems across 256 run directories.**
+That threshold has passed — but it
 passes in **v2**, not v1 (§0.3).
 
 ### 1.2 Index decay has already started — I-076, observed
@@ -713,7 +714,7 @@ silently empty read is the same failure mode as an unwired checker."*
 | 12 | `05` / `06` boundary | **The engine-swap test** | Checkable, so two people give the same answer ([TREE.md](TREE.md) §2-B) |
 | 13 | Category 3's name | **`03-control`** | "Software" names three different things ([TREE.md](TREE.md) §2-C) |
 | 14 | Number 04 in `kb/` | **Left empty** | The gap marks the write-authority split |
-| 15 | `runs/` (256) | **Not migrated**; indexed only | Run provenance is BD's (`charter.md` §3) |
+| 15 | `runs/` (227 records in 256 directories) | **Not migrated**; indexed only | Run provenance is BD's (`charter.md` §3) |
 | 16 | `tools/kb.py` | **Retired** | Its `ENTRY_DIR` returns 0 silently |
 | 17 | Broken-reference CI check | **Required at MIGRATION Step 2** | The only defence against §8's last row |
 | 18 | Weekly automation | **Deferred** → `index_stale` | Decided 2026-09-06 |

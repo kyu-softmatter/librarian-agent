@@ -200,7 +200,7 @@ Measured file counts. **`runs/` and `research-topic` are not migrated.**
 | `wiki/questions/` | 2 | `kb/0X/questions/` |
 | `wiki/CLAUDE.md` | 1 | **Contract absorbed** into `kb/README.md`. Not a file move |
 | `entries/*.json` | 135 | By `origin`: `tooling` 52 · `method` 45 → `map/04-agents` or `06-simulation` · `handbook` 25 → derived from `07-sources/books` · `intake` 10 → `06-simulation` · `paper` 3 → `07-sources` |
-| `runs/*/record.json` | 256 | **Not migrated.** Run provenance is BD's — the index only |
+| `runs/*/record.json` | 227 | **Not migrated.** Run provenance is BD's — the index only. There are **256** run directories; 29 hold no post-mortem |
 
 ### `research-topic`
 
@@ -245,7 +245,7 @@ gitignored.
 | 2 | Visibility | ✅ **fully public — 2026-09-06** | The `publish-gate` becomes a precondition for the digest |
 | 3 | `tools/kb.py` | **retired** (Librarian MCP replaces it) | Its `ENTRY_DIR` returns 0 silently |
 | 4 | Broken-reference CI check | **required at Step 2** | §2's silent failure otherwise stays |
-| 5 | `runs/` (256) | **not migrated**; indexed only | Otherwise ownership of run provenance blurs |
+| 5 | `runs/` (227 records in 256 directories) | **not migrated**; indexed only | Otherwise ownership of run provenance blurs |
 | 6 | `entries/` (135) decomposition | by `origin` (§5) | Otherwise 52 + 45 tooling/method entries pollute the subject folders |
 | 7 | Migration order | **MS first**, then BD, then RT | Step 4's proof becomes per-repository |
 | 8 | Deletion timing | after Step 4 passes | — |
