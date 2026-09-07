@@ -140,12 +140,26 @@ accelerate `LIKE` and `GLOB`. So:
 
 ```
 one trigram table + branch on query length
-  >=3 chars  ->  MATCH        (BM25 ranking available)
-  <=2 chars  ->  LIKE '%q%'   (correct, no ranking)
+  >=3 chars  ->  MATCH        (bm25 ranking available, terms OR-combined)
+  <=2 chars  ->  GLOB '*q*'   (exact, case-sensitive, no ranking)
 ```
 
 **No hole.** Cost: index size `unicode61` 124 KiB -> `trigram` 196 KiB for the
 same 500 bodies — about **1.6x**, negligible at this corpus size.
+
+**`GLOB`, not `LIKE` — corrected while building.** SQLite's `LIKE` is
+case-insensitive for ASCII, so on the real 544-document corpus `body LIKE
+'%NA%'` matched **349 documents** — every `internal`, `analysis` and `nothing` in
+it. `body GLOB '*NA*'` matches **65**. For a two-character technical term case
+is the signal: `NA` is the numerical aperture and `na` is a syllable. The table
+above is unchanged by this; only the operator is.
+
+**Terms are OR-combined, also corrected while building.** FTS5 defaults to AND,
+and under a trigram tokenizer that requires every word of a question to appear
+as a substring: *"what limits how long I can image this dye"* returned **one**
+document out of 544. bm25 already favours a document matching more of the query,
+so OR ranks instead of refusing. Single characters are dropped — the `I` in that
+question matches almost everything and buys nothing.
 
 > **A morphological analyzer (mecab-ko and similar) is not used.** It adds an
 > external dependency, and if its output shifts with a version then **the same
@@ -165,7 +179,7 @@ constraint ④ forbids. Migration starts when all of the following pass.
 |---|---|
 | Subject folder shape | The five subject folders (`01` `02` `03` `05` `06`) share the same five slots — `cards` · `evidence/{measured,assumed}` · `findings` · `questions`. `00-decisions`, `07-sources` and `08-retrieval` declare their own shape and no cards ([TREE.md](TREE.md) §4) |
 | Schema formality | Fields used for branching, routing or a verdict contain **no prose** — enum, number, ID or boolean only |
-| Regeneration | Delete `index/` and `map/` entirely, rebuild, **byte-identical** |
+| ✅ Regeneration | Delete `index/` and `map/` entirely, rebuild, **byte-identical**. Achieved literally rather than weakened: rows are sorted by uid before insert and **no timestamp is written**, since the commit SHA already identifies what the index was built from |
 | The empty-query state | A query against an empty `kb/` returns **`searched_empty` explicitly**, never a bare 0 |
 | Coordinates mandatory | No code path can return a hit without `repo@sha:path#locator` |
 | Non-zero per source | Each adapter asserts a non-zero document count for its source; a source dropping to zero **fails the build** (§1) |
@@ -174,8 +188,8 @@ constraint ④ forbids. Migration starts when all of the following pass.
 
 | Check | Pass condition |
 |---|---|
-| Korean queries | 2, 3 and 4-character queries and partial words all hit (§3) |
-| Profile divergence | The same question returns a **different top three** under lens 5 and lens 4. Identical means the profile is decorative |
+| ✅ Korean queries | 2, 3 and 4-character queries and partial words all hit (§3) |
+| ✅ Profile divergence | The same question returns a **different top three** under lens 5 and lens 4 — verified **disjoint** on the real corpus: lens 5 lands in `kb/literature/`, lens 4 in `kb/expertise/`. Identical would mean the profile is decorative |
 | Tier cross-check | An `evidence: assumed` file planted under `evidence/measured/` **is caught** |
 | Decay detection | F7's two defects (missing generator, 40 vs 42) are **rediscovered automatically** |
 | Tier carried | Every hit carries `evidence` and `tier`. A hit lacking them cannot be returned |

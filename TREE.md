@@ -161,12 +161,17 @@ describe **data**, where the question is who may overwrite what.
 
 **The four zones:**
 
-| Zone | Mark | Written by | Deletable |
-|---|---|---|---|
-| `kb/` | ★ canonical | humans · approved agents | **no** |
-| `map/` · `index/` · `export/` | ◆ derived | generators only | **yes** — the rebuild is canonical |
-| `store/` | ● published | Librarian | no (it is a record) |
-| `cache/` | — | `git fetch` | yes |
+| Zone | Mark | Written by | Deletable | Tracked in git |
+|---|---|---|---|---|
+| `kb/` | ★ canonical | humans · approved agents | **no** | yes |
+| `map/` · `index/` · `export/` | ◆ derived | generators only | **yes** — the rebuild is canonical | **no** — only the READMEs and folder markers |
+| `store/` | ● published | Librarian | no (it is a record) | yes |
+| `cache/` | — | `git fetch` | yes | no |
+
+**Derived output is gitignored, not committed.** Tracking a derived file invites
+hand-editing it, and a hand-edited derived file outliving its generator is the
+failure this project exists to catch. They rebuild byte-identically from `kb/`
+plus a commit SHA, so history gains nothing by holding them.
 
 > **That `map/`, `index/` and `export/` are deletable is the point of the design.**
 > While that property holds, §2-A's decay — an artefact outliving its generator —

@@ -119,3 +119,86 @@ def test_bd_index_defects_are_rediscovered(bd):
     # No noise: BD's roadmap mentions the microscope's gates in prose, and a
     # prose mention is not a declaration.
     assert [f for f in findings if f.check == "gate_declared_not_implemented"] == []
+
+
+# --- search: the Phase 1 acceptance criterion -------------------------------
+
+def _index(ms, tmp_path):
+    from librarian.index import Index, build
+    rep = scan(ms)
+    p = tmp_path / "kb.sqlite"
+    build(rep.docs, p, {"ms": rep.sha})
+    return Index(p), rep.sha
+
+
+def test_the_real_corpus_rebuilds_byte_identically(ms, tmp_path):
+    from librarian.index import build
+    rep = scan(ms)
+    a, b = tmp_path / "a.sqlite", tmp_path / "b.sqlite"
+    build(rep.docs, a, {"ms": rep.sha})
+    build(rep.docs, b, {"ms": rep.sha})
+    assert a.read_bytes() == b.read_bytes()
+    assert a.stat().st_size > 0
+
+
+def test_the_two_lens_profiles_return_different_answers(ms, tmp_path):
+    """BUILD.md 4-B: identical top three means the profile is decorative.
+
+    The two lenses consume different corpora on purpose -- lens 5 owns
+    `bleach_photons` and G10, lens 4 owns G15-G19 and the captured priors on
+    immersion media, coverslip thickness and medium refractive index -- so one
+    question has to land in different places.
+    """
+    from librarian.index import load_profiles
+    from pathlib import Path
+
+    profiles = load_profiles(Path(__file__).resolve().parent.parent / "profiles")
+    p5 = profiles["ms:lens-5-photo-perturbation"]
+    p4 = profiles["ms:lens-4-sample-optics"]
+
+    idx, sha = _index(ms, tmp_path)
+    try:
+        q = "what limits how long I can image this dye"
+        top5 = [h.uid for h in idx.search(q, p5, limit=3, current_shas={"ms": sha}).hits]
+        top4 = [h.uid for h in idx.search(q, p4, limit=3, current_shas={"ms": sha}).hits]
+
+        assert len(top5) == len(top4) == 3
+        assert set(top5).isdisjoint(top4), f"profiles agree: {top5}"
+        assert all("kb/literature" in u for u in top5)
+        assert all("kb/expertise" in u for u in top4)
+    finally:
+        idx.close()
+
+
+def test_a_registry_entry_is_reachable_by_name(ms, tmp_path):
+    from librarian.index import load_profiles
+    from pathlib import Path
+
+    profiles = load_profiles(Path(__file__).resolve().parent.parent / "profiles")
+    idx, sha = _index(ms, tmp_path)
+    try:
+        res = idx.search("AlexaFluor488 bleach_photons",
+                         profiles["ms:lens-5-photo-perturbation"], limit=5,
+                         current_shas={"ms": sha})
+        uids = [h.uid for h in res.hits]
+        assert "ms:data/fluorophores.yaml#fluorophores.AlexaFluor488" in uids
+        # and the tier travels with it, so nothing can be mistaken for measured
+        assert all(h.evidence == "measured" for h in res.hits if h.advances)
+    finally:
+        idx.close()
+
+
+def test_a_two_character_query_survives_the_real_corpus(ms, tmp_path):
+    """`LIKE` matched 349 of 544 documents here; `GLOB` matches 65."""
+    from librarian.index import Profile
+    idx, sha = _index(ms, tmp_path)
+    try:
+        res = idx.search("NA", Profile(id="t"), limit=5, current_shas={"ms": sha})
+        assert res.status == "ok" and res.terms_globbed == ["NA"]
+        n_glob = idx.db.execute(
+            "SELECT count(*) FROM doc WHERE body GLOB '*NA*'").fetchone()[0]
+        n_like = idx.db.execute(
+            "SELECT count(*) FROM doc WHERE body LIKE '%NA%'").fetchone()[0]
+        assert n_glob < n_like / 3
+    finally:
+        idx.close()

@@ -1,0 +1,46 @@
+# Committee Lens 4 -- sample geometry & optics.
+#
+# Owns objective choice, immersion, coverslip, imaging depth and chamber.
+#   sample/checks.py docstrings  -> G15 G16 G16b G16c G17 G18 G19
+#   setup.<field> in sample/*.py -> the fields those gates actually consume
+#
+# Its captured priors are the `kb/expertise/` entries on immersion media,
+# coverslip thickness and sample-medium refractive index, which is why this
+# profile weights `expertise` where lens 5 weights `registry`.
+id: ms:lens-4-sample-optics
+lens: 4
+
+kind_weight:
+  calibration:      2.0
+  expertise:        1.9    # this lens's own captured priors live here
+  system:           1.5    # the instrument dossier: nosepiece, objectives
+  registry:         1.4
+  literature_form:  1.2
+  doc_section:      1.0
+  decision:         0.8
+  agent:            0.5
+
+boost:
+  gate: [G15, G16, G16b, G16c, G17, G18, G19]
+  field:
+    - objective
+    - imaging_depth_um
+    - resolved_coverslip_um
+    - design_coverslip_um
+    - n_immersion
+    - n_medium
+    - working_distance
+    - unspaced_mount
+    - resolved_slab
+  path_prefix:
+    - data/objectives.yaml
+    - data/pixel_size.yaml
+    - kb/expertise
+    - kb/systems
+    - docs/03-cross-system-transfer.md
+
+demote:
+  reproduced:
+    "no": 0.7
+
+return_always: [evidence, tier, has_falsifier, conditions, review_after]

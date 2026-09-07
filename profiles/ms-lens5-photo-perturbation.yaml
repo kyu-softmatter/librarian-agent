@@ -1,0 +1,54 @@
+# Committee Lens 5 -- photo-perturbation.
+#
+# Owns light level, illumination duty, total dose and wavelength choice.
+# Gates and fields below are read off the repository, not invented:
+#   photo/checks.py docstrings  -> G10 G20 G21 G22
+#   setup.<field> in photo/*.py -> the fields those gates actually consume
+#
+# Paired with ms-lens4-sample-optics.yaml on purpose. One profile cannot show
+# that a profile does anything -- BUILD.md 4-B's criterion is that the same
+# question returns a different top three under each, and these two consume
+# different corpora.
+id: ms:lens-5-photo-perturbation
+lens: 5
+
+# A weight, not a filter. `prefer_kinds` as a hard filter was the first draft
+# and it removed the answer: most `registry` entries carry `verified: false`,
+# and `data/fluorophores.yaml > AlexaFluor488` is exactly what this lens needs.
+kind_weight:
+  calibration:      2.0    # measured here; outranks anything published
+  literature_form:  1.8    # the tier built to be replaced by a calibration
+  registry:         1.6    # the field a gate reads at runtime
+  expertise:        1.4
+  doc_section:      1.0
+  decision:         0.8
+  system:           0.7
+  agent:            0.5
+
+boost:
+  gate: [G10, G20, G21, G22]
+  field:
+    - bleach_photons
+    - lifetime_ns
+    - quantum_yield
+    - ext_coeff_M1cm1
+    - power_at_sample_mw
+    - photostability
+    - dose_limit_j_cm
+    - resolved_irradiance
+    - photoresponsive
+  path_prefix:
+    - data/fluorophores.yaml
+    - data/light_sources.yaml
+    - data/filters.yaml
+    - kb/literature
+    - docs/04-decision-engine.md
+
+# Demoted, never excluded. BD's rule is not to raise an unreproduced value as
+# **grounds**; it is still the right pointer, and the tier travels with it so a
+# caller cannot mistake one for the other.
+demote:
+  reproduced:
+    "no": 0.7
+
+return_always: [evidence, tier, has_falsifier, conditions, review_after]

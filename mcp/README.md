@@ -6,12 +6,12 @@ arrives as a pull request.
 
 | Tool | Purpose |
 |---|---|
-| `kb_search` | ranked hits with coordinates, tier and falsifier |
+| `kb_search` | ranked hits with coordinates, tier and falsifier. Built: `librarian/index.py` |
 | `kb_get` | one entry, body and frontmatter |
 | `kb_neighbors` | `cites` / `used_by` / `supersedes` graph |
 | `kb_supplies` | what supplies a registry field or a gate |
-| `kb_gaps` | gates `BLOCKED` for want of an input — **v1's primary product** |
-| `kb_stale` | the drift report |
+| `kb_gaps` | gates `BLOCKED` for want of an input — **v1's primary product**. Built: `librarian/gaps.py` |
+| `kb_stale` | the drift report. Built: `librarian/drift.py` |
 | `kb_challenge_raise` | writes `store/challenge/`, routes by falsifier type |
 | `kb_feedback` | writes `kb/08-retrieval/sessions/` |
 

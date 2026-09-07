@@ -12,7 +12,11 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-CACHE = Path(__file__).resolve().parent.parent / "cache"
+ROOT = Path(__file__).resolve().parent.parent
+CACHE = ROOT / "cache"
+INDEX = ROOT / "index" / "kb.sqlite"
+PROFILES = ROOT / "profiles"
+MANIFEST = ROOT / "map" / "manifest.json"
 
 
 def _root(repo: str) -> Path:
@@ -67,6 +71,66 @@ def cmd_gaps(args) -> int:
     return 0
 
 
+def cmd_reindex(args) -> int:
+    from librarian.index import build, manifest
+    from librarian.scan import scan
+    docs, shas = [], {}
+    for repo in args.repo:
+        rep = scan(_root(repo))
+        errs = [f for f in rep.findings if f.severity == "error"]
+        if errs:
+            _print_findings(errs)
+            return 1
+        docs += rep.docs
+        shas[repo] = rep.sha
+        print(f"  {repo}@{rep.sha}: {len(rep.docs)} docs")
+    n = build(docs, INDEX, shas)
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST.write_text(manifest(shas, n))
+    print(f"\nwrote {INDEX.relative_to(ROOT)} -- {n} docs")
+    print(f"wrote {MANIFEST.relative_to(ROOT)}")
+    return 0
+
+
+def cmd_search(args) -> int:
+    import json
+
+    from librarian.index import Index, load_profiles
+    from librarian.scan import commit_sha
+    if not INDEX.exists():
+        sys.exit("no index. Run: python -m librarian.cli reindex --repo ms")
+
+    profiles = load_profiles(PROFILES)
+    if args.profile not in profiles:
+        sys.exit(f"unknown profile {args.profile!r}. Known: {', '.join(sorted(profiles))}")
+
+    idx = Index(INDEX)
+    current = {r: commit_sha(CACHE / r) for r in idx.repo_shas if (CACHE / r).is_dir()}
+    res = idx.search(" ".join(args.query), profiles[args.profile],
+                     limit=args.limit, current_shas=current,
+                     require={"evidence": args.require_evidence} if args.require_evidence else None)
+    if args.json:
+        print(json.dumps(res.as_dict(), indent=2, ensure_ascii=False))
+        return 0
+
+    stale = "  [index_stale]" if res.index_stale else ""
+    print(f"status={res.status}  profile={res.profile}{stale}")
+    print(f"terms: match={res.terms_matched} glob={res.terms_globbed}\n")
+    if res.status == "searched_empty":
+        print("  searched_empty -- the corpus was searched and returned nothing.")
+        print("  (Not the same as not_searched, which is the absence of a record.)")
+        return 0
+    for i, h in enumerate(res.hits, 1):
+        tier = f"{h.evidence or '-'}/{h.tier if h.tier is not None else '-'}"
+        print(f"{i:2d}. {h.score:8.3f}  {h.uid}")
+        print(f"      {h.title[:96]}")
+        print(f"      kind={h.kind}  evidence={tier}  advances={h.advances}  "
+              f"falsifier={h.has_falsifier}  by={h.matched_by}")
+        if h.snippet:
+            print(f"      {h.snippet[:110]}")
+    return 0
+
+
 def cmd_drift(args) -> int:
     from librarian.drift import drift
     findings = []
@@ -103,12 +167,25 @@ def main(argv=None) -> int:
     g.add_argument("--missing-only", action="store_true")
     g.set_defaults(fn=cmd_gaps)
 
+    r = sub.add_parser("reindex", help="rebuild the index from scratch")
+    r.add_argument("--repo", action="append", default=None)
+    r.set_defaults(fn=cmd_reindex)
+
+    q = sub.add_parser("search", help="query the index under a caller profile")
+    q.add_argument("query", nargs="+")
+    q.add_argument("--profile", default="neutral")
+    q.add_argument("--limit", type=int, default=10)
+    q.add_argument("--require-evidence", action="append", default=None,
+                   help="hard filter, opt-in only: measured | assumed | confirmed_default")
+    q.add_argument("--json", action="store_true")
+    q.set_defaults(fn=cmd_search)
+
     d = sub.add_parser("drift", help="does what is declared still match what exists")
     d.add_argument("--repo", action="append", default=None)
     d.set_defaults(fn=cmd_drift)
 
     args = ap.parse_args(argv)
-    if args.cmd == "drift" and not args.repo:
+    if args.cmd in {"drift", "reindex"} and not args.repo:
         args.repo = ["ms"]
     return args.fn(args)
 

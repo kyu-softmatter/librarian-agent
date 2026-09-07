@@ -314,7 +314,7 @@ about (*"indexing is reversible; migration is not"*):
         │    00-decisions 01-materials 02-hardware 03-control       │
         │    05-physics 06-simulation 07-sources 08-retrieval       │
         │       │                                                   │
-        │       ├──▶ index/kb.sqlite      ◆ FTS5 + metadata         │
+        │       ├──▶ index/kb.sqlite      ◆ FTS5 (trigram) + metadata         │
         │       ├──▶ map/                 ◆ 04-agents · manifest    │
         │       └──▶ export/{ms,bd}/      ◆ read-only, sent back    │
         │                                                           │
@@ -457,17 +457,32 @@ in BD `I-053` (translated):
 time.**
 
 ```yaml
-# profiles/ms-lens5-photo.yaml
+# profiles/ms-lens5-photo-perturbation.yaml
 id: ms:lens-5-photo-perturbation
-prefer_kinds:   [literature, calibration, expertise, paper]
-require_fields: [evidence, tier]          # a hit without these is dropped
+kind_weight:                    # a weight, never a filter
+  calibration:     2.0          #   measured here; outranks anything published
+  literature_form: 1.8
+  registry:        1.6
+  agent:           0.5
 boost:
-  quantity_match: 3.0                     # matches a data/*.yaml field name
-  gate_match:     2.5                     # G10, ...
-exclude:
-  reproduced: [no]                        # never raise an unreproduced value as grounds
-return_always:  [falsifier, conditions, transfer_conditions]
+  gate:  [G10, G20, G21, G22]           # read off photo/checks.py docstrings
+  field: [bleach_photons, lifetime_ns, power_at_sample_mw, ...]
+  path_prefix: [data/fluorophores.yaml, kb/literature, ...]
+demote:
+  reproduced: {"no": 0.7}               # demoted, never excluded
+return_always: [evidence, tier, has_falsifier, conditions, review_after]
 ```
+
+> **Two filters in the first draft of this section each removed the answer.**
+> Building it showed both:
+>
+> | Drafted as | What it did | Now |
+> |---|---|---|
+> | `require_fields: [evidence, tier]` — *"a hit without these is dropped"* | **495 of 544 MS documents carry no evidence tier**, including every `docs/` section. Asked what G10 checks, the profile would drop the answer | `return_always` — the tier is **carried**, which is what stops a caller mistaking `assumed` for `measured`. A hard filter is opt-in per query (`require`), not per profile |
+> | `exclude: reproduced: [no]` | Most registry entries state `verified: false` on purpose — the headers say the values are catalog nominals whose wings are wrong. `data/fluorophores.yaml > AlexaFluor488` is exactly what this lens needs | `demote` — BD's rule is not to raise an unreproduced value as **grounds**; it is still the right pointer |
+>
+> **Both mistakes have the same shape as the linter mistakes in §1.8: a filter
+> that looks like rigour and removes the thing being looked for.**
 
 **v1 profiles: `ms:lens-5-photo-perturbation` and `ms:lens-4-sample-optics`.**
 A pair, not one — the acceptance criterion is that the same question returns
@@ -485,7 +500,7 @@ Six read, two write. **Writes touch `kb/` and `store/` only.**
 
 | Tool | Signature | Returns |
 |---|---|---|
-| `kb_search` | `(question, caller_profile, kinds?, limit?)` | hits with `repo@sha:path#locator`, `evidence`/`tier`, falsifier, and `index_stale`. Zero results is **`searched_empty`, distinct from `not_searched`** (constraint ①) |
+| `kb_search` | `(question, caller_profile, limit?, require?)` | hits with `repo@sha:path#locator`, `evidence`/`tier`/`advances`, `has_falsifier`, and `index_stale`. Zero results is **`searched_empty`, distinct from `not_searched`** (constraint ①). Terms of 3+ characters go to FTS5 `MATCH` (bm25-ranked, OR-combined); shorter ones to `GLOB` → [BUILD.md](BUILD.md) §3 |
 | `kb_get` | `(uid)` | body plus full frontmatter |
 | `kb_neighbors` | `(uid, relation)` | `cites` / `used_by` / `supersedes` graph |
 | `kb_supplies` | `(field \| gate)` | what supplies that registry field or gate. **`bleach_photons` × G10 is the live case** |
@@ -601,9 +616,10 @@ Each phase carries an exit condition. A phase without one does not end.
 
 | Task | Exit condition |
 |---|---|
-| FTS5 (`trigram` + `LIKE` fallback), `kb_search` · `kb_get` · `kb_neighbors` | Korean and English queries of 2, 3 and 4 characters all hit ([BUILD.md](BUILD.md) §3) |
-| `profiles/` — lens 5 and lens 4 | The same question returns **different top three** under each |
-| `kb_supplies` · **`kb_gaps`** | For `bleach_photons` × G10, returns exactly *"BLOCKED, no supplying candidate"* |
+| ✅ FTS5 (`trigram` + `GLOB` fallback), `kb_search` | Korean and English queries of 2, 3 and 4 characters all hit ([BUILD.md](BUILD.md) §3) |
+| ✅ `profiles/` — lens 5 and lens 4 | The same question returns **different top three** under each — verified disjoint: lens 5 lands in `kb/literature/`, lens 4 in `kb/expertise/` |
+| ✅ **`kb_gaps`** | For `bleach_photons` × G10, returns 0 of 17 with nothing supplying it (§0.2①) |
+| `kb_get` · `kb_neighbors` | pending |
 | MCP server registered | The tools are callable from a Claude Code session in the MS repo |
 
 ### Phase 2 — interlocks (**before** any KB content)

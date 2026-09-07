@@ -1,11 +1,21 @@
 # Local clone cache of the three source repositories — never canonical
 cache/
 
-# Derived artefacts: the index is rebuilt from kb/, so it is not tracked
+# Derived artefacts are not tracked. Tracking one invites hand-editing it, and a
+# hand-edited derived file outliving its generator is the failure this project
+# exists to catch (BD's knowledge/source/papers/INDEX.md). They are byte-
+# reproducible from kb/ plus a commit SHA, so history gains nothing by holding
+# them.
 index/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+map/manifest.json
+map/04-agents/*/*
+!map/04-agents/*/.gitkeep
+export/ms/*
+export/bd/*
+!export/*/.gitkeep
 
 # Copyrighted originals never enter the repository (BD knowledge/raw convention).
 # Only the in-git distillation is canonical; the original is fetched via source_url.
