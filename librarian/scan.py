@@ -44,6 +44,13 @@ class ScanReport:
     findings: list[Finding] = field(default_factory=list)
     per_source: dict[str, int] = field(default_factory=dict)
     files_seen: dict[str, int] = field(default_factory=dict)
+    #: Every repo-relative path that exists. This is what separates a reference
+    #: to an unindexed file from a reference to a missing one -- without it, a
+    #: link checker reports the whole graph as broken.
+    repo_files: set[str] = field(default_factory=set)
+    #: Raw text of the candidate files, for frontmatter relations that belong to
+    #: the file rather than to any one of its sections.
+    source_text: dict[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -53,6 +60,9 @@ class ScanReport:
 def scan(root: Path, sources: list[str] | None = None) -> ScanReport:
     sha = commit_sha(root)
     rep = ScanReport(sha=sha)
+    rep.repo_files = {p.relative_to(root).as_posix()
+                      for p in root.rglob("*")
+                      if p.is_file() and ".git" not in p.parts}
     names = sources or list(ADAPTERS)
 
     for name in names:
@@ -76,8 +86,13 @@ def scan(root: Path, sources: list[str] | None = None) -> ScanReport:
             continue
 
         # 2. coverage, checked from outside the adapter
-        cands = {p.relative_to(root).as_posix() for p in CANDIDATES[name](root)}
+        cand_paths = CANDIDATES[name](root)
+        cands = {p.relative_to(root).as_posix() for p in cand_paths}
         rep.files_seen[name] = len(cands)
+        for p in cand_paths:
+            if p.suffix == ".md":
+                rep.source_text[p.relative_to(root).as_posix()] = p.read_text(
+                    encoding="utf-8", errors="replace")
         covered = {d.path for d in docs}
         for miss in sorted(cands - covered):
             rep.findings.append(Finding(

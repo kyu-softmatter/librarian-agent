@@ -394,6 +394,21 @@ doc(
 )
 ```
 
+Three tables sit beside it, all derived at build time so the MCP server has one
+dependency rather than two — a query-time check against the source tree would
+compare against a repository that has moved while the index has not.
+
+| Table | Holds | Read by |
+|---|---|---|
+| `link` | every cross-reference, with `status` = `indexed` · `in_repo` · `missing` | `kb_neighbors`, and the broken-reference finding |
+| `gap` | registry coverage per (registry, entry, field) | `kb_gaps` · `kb_supplies` |
+| `finding` | the §4.3 drift report | `kb_stale` |
+
+> **`status` on a link is three-valued for a reason.** A reference to
+> `../../NOTICE.md` resolves to a file that exists and that no adapter reads —
+> `in_repo`, and not a defect. Only `missing` is one. Collapsing the two reports
+> the whole reference graph as broken, which is how a link checker becomes noise.
+
 `has_falsifier` matters more than it looks. `kb-schema.md` §4.7: *"An entry with
 no falsifier cannot be challenged. That is a defect in the entry — philosophy ③
 says every judgment carries the check that would overturn it — and not a gap
@@ -501,11 +516,11 @@ Six read, two write. **Writes touch `kb/` and `store/` only.**
 | Tool | Signature | Returns |
 |---|---|---|
 | `kb_search` | `(question, caller_profile, limit?, require?)` | hits with `repo@sha:path#locator`, `evidence`/`tier`/`advances`, `has_falsifier`, and `index_stale`. Zero results is **`searched_empty`, distinct from `not_searched`** (constraint ①). Terms of 3+ characters go to FTS5 `MATCH` (bm25-ranked, OR-combined); shorter ones to `GLOB` → [BUILD.md](BUILD.md) §3 |
-| `kb_get` | `(uid)` | body plus full frontmatter |
-| `kb_neighbors` | `(uid, relation)` | `cites` / `used_by` / `supersedes` graph |
-| `kb_supplies` | `(field \| gate)` | what supplies that registry field or gate. **`bleach_photons` × G10 is the live case** |
+| ✅ `kb_get` | `(uid)` | body, full frontmatter, and both link directions. A missed locator returns `not_found` **with the other sections of that path**, because the usual cause is an edited heading |
+| ✅ `kb_neighbors` | `(uid, relation, direction)` | `cites` · `supersedes` · `superseded_by` · `applies_to` · `same_file`. A neighbour's `status` separates *indexed* from *exists but unindexed* from *absent* |
+| ✅ `kb_supplies` | `(field \| gate)` | what supplies that registry field, or what a gate waits for — the same question from either end. **`bleach_photons` × G10 returns `blocked`** |
 | `kb_gaps` | `(caller_profile)` | gates `BLOCKED` for want of an input · registry fields still empty · `has_falsifier = 0` entries. **v1's primary product** (§0.2①) |
-| `kb_stale` | `()` | the §4.3 drift report |
+| ✅ `kb_stale` | `()` | staleness **and** the §4.3 drift report, both stored in the index at build time so the server needs the index and nothing else |
 | `kb_challenge_raise` | `(target_uid, doubt_kind, falsifier_cited, …)` | writes `store/challenge/` and **routes by falsifier type**. Refused without `falsifier_cited` |
 | `kb_feedback` | `(query, caller_profile, returned, cited, verdict, …)` | writes `kb/08-retrieval/sessions/` → [FEEDBACK.md](FEEDBACK.md) |
 
@@ -619,8 +634,8 @@ Each phase carries an exit condition. A phase without one does not end.
 | ✅ FTS5 (`trigram` + `GLOB` fallback), `kb_search` | Korean and English queries of 2, 3 and 4 characters all hit ([BUILD.md](BUILD.md) §3) |
 | ✅ `profiles/` — lens 5 and lens 4 | The same question returns **different top three** under each — verified disjoint: lens 5 lands in `kb/literature/`, lens 4 in `kb/expertise/` |
 | ✅ **`kb_gaps`** | For `bleach_photons` × G10, returns 0 of 17 with nothing supplying it (§0.2①) |
-| `kb_get` · `kb_neighbors` | pending |
-| MCP server registered | The tools are callable from a Claude Code session in the MS repo |
+| ✅ `kb_get` · `kb_neighbors` · `kb_supplies` · `kb_stale` | Six read tools, all annotated read-only |
+| ✅ MCP server registered | `.mcp.json` at the root, `python -m mcp_server.server`. **Not `mcp/`** — that directory name shadows the SDK, and `python -m` puts the working directory first on `sys.path`, so the failure appears only from inside the repository |
 
 ### Phase 2 — interlocks (**before** any KB content)
 

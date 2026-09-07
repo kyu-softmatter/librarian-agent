@@ -3,7 +3,11 @@ name = "librarian"
 version = "0.1.0"
 description = "Knowledge custody, retrieval and interaction for the microscope, simulation and research agents"
 requires-python = ">=3.11"
-dependencies = ["PyYAML>=6.0"]
+dependencies = ["PyYAML>=6.0", "mcp>=2.1,<3"]
+
+# mcp is pinned to 2.x on purpose: the SDK renamed FastMCP to MCPServer at 2.0
+# and moved it to mcp.server.mcpserver, which is the name mcp_server/server.py
+# imports -- so a 1.x install fails at import rather than at run time.
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

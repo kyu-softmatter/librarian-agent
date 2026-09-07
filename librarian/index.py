@@ -28,12 +28,14 @@ source, and that disagreement is the shape of an accident BD paid for.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from librarian.doc import Doc
+from librarian.doc import Doc, Finding, Gap
+from librarian.links import Link
 
 SCHEMA_VERSION = "1"
 MIN_MATCH_CHARS = 3          # below this, FTS5 trigram cannot form a token
@@ -69,6 +71,42 @@ CREATE TABLE doc (
 CREATE INDEX doc_kind ON doc(kind);
 CREATE INDEX doc_path ON doc(path);
 
+CREATE TABLE finding (
+  check_name  TEXT NOT NULL,
+  subject     TEXT NOT NULL,
+  detail      TEXT NOT NULL,
+  severity    TEXT NOT NULL
+);
+
+CREATE INDEX finding_check ON finding(check_name);
+
+CREATE TABLE gap (
+  registry      TEXT NOT NULL,
+  entry         TEXT NOT NULL,
+  field         TEXT NOT NULL,
+  present       INTEGER NOT NULL,
+  gate          TEXT,
+  finding_code  TEXT,
+  repo          TEXT NOT NULL
+);
+
+CREATE INDEX gap_field ON gap(field);
+CREATE INDEX gap_gate ON gap(gate);
+
+CREATE TABLE link (
+  src_uid      TEXT NOT NULL,
+  relation     TEXT NOT NULL,
+  raw          TEXT NOT NULL,
+  dst_path     TEXT,
+  dst_locator  TEXT,
+  dst_uid      TEXT,
+  status       TEXT NOT NULL
+);
+
+CREATE INDEX link_src ON link(src_uid);
+CREATE INDEX link_dst ON link(dst_uid);
+CREATE INDEX link_status ON link(status);
+
 CREATE VIRTUAL TABLE doc_fts USING fts5(
   title, body, conditions,
   content = 'doc', content_rowid = 'rowid',
@@ -86,7 +124,9 @@ _COLS = ("uid", "repo", "path", "locator", "commit_sha", "kind", "origin",
 # build
 # --------------------------------------------------------------------------
 
-def build(docs: Iterable[Doc], path: Path, repo_shas: dict[str, str]) -> int:
+def build(docs: Iterable[Doc], path: Path, repo_shas: dict[str, str],
+          links: Iterable["Link"] = (), gaps: Iterable[Gap] = (),
+          findings: Iterable[Finding] = ()) -> int:
     """Write the index from scratch. Never incremental.
 
     Sorted by uid before insert so two runs over the same input produce the same
@@ -104,6 +144,25 @@ def build(docs: Iterable[Doc], path: Path, repo_shas: dict[str, str]) -> int:
             f"INSERT INTO doc ({','.join(_COLS)}) "
             f"VALUES ({','.join('?' * len(_COLS))})",
             [tuple(_cell(d, c) for c in _COLS) for d in rows],
+        )
+        db.executemany(
+            "INSERT INTO finding (check_name, subject, detail, severity) "
+            "VALUES (?, ?, ?, ?)",
+            [(f.check, f.subject, f.detail, f.severity)
+             for f in sorted(findings, key=lambda f: (f.check, f.subject))],
+        )
+        db.executemany(
+            "INSERT INTO gap (registry, entry, field, present, gate, "
+            "finding_code, repo) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(g.registry, g.entry, g.field, int(g.present), g.gate,
+              g.finding_code, g.repo)
+             for g in sorted(gaps, key=lambda g: (g.registry, g.field, g.entry))],
+        )
+        db.executemany(
+            "INSERT INTO link (src_uid, relation, raw, dst_path, dst_locator, "
+            "dst_uid, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(l.src_uid, l.relation, l.raw, l.dst_path, l.dst_locator,
+              l.dst_uid, l.status) for l in links],
         )
         # An external-content FTS table is populated from its content table, so
         # the two cannot drift apart by construction.
@@ -241,6 +300,177 @@ class Index:
 
     def close(self) -> None:
         self.db.close()
+
+    # -- one document ------------------------------------------------------
+
+    def get(self, uid: str) -> dict[str, Any] | None:
+        """One document in full, with its outbound and inbound references.
+
+        Returns None rather than raising: a uid that is not here is an answer.
+        `near` names the other sections of the same file, because the usual
+        reason a uid misses is that the locator moved when a heading was edited.
+        """
+        row = self.db.execute("SELECT * FROM doc WHERE uid = ?", (uid,)).fetchone()
+        if row is None:
+            path = uid.split("#", 1)[0].split(":", 1)[-1]
+            near = [r["uid"] for r in self.db.execute(
+                "SELECT uid FROM doc WHERE path = ? ORDER BY uid", (path,))]
+            return None if not near else {"status": "not_found", "uid": uid,
+                                          "near": near}
+        d = dict(row)
+        d["advances"] = row["evidence"] == "measured"
+        d["has_falsifier"] = bool(row["has_falsifier"])
+        d["lab_authored"] = bool(row["lab_authored"])
+        d["status"] = "ok"
+        d["links_out"] = [dict(r) for r in self.db.execute(
+            "SELECT relation, raw, dst_uid, dst_path, status FROM link "
+            "WHERE src_uid = ? ORDER BY relation, raw", (uid,))]
+        d["links_in"] = [dict(r) for r in self.db.execute(
+            "SELECT src_uid, relation FROM link WHERE dst_uid = ? "
+            "ORDER BY src_uid", (uid,))]
+        return d
+
+    # -- the reference graph -----------------------------------------------
+
+    def neighbors(self, uid: str, relation: str = "cites",
+                  direction: str = "out") -> list[dict[str, Any]]:
+        """Documents one hop away.
+
+        `same_file` is computed rather than stored -- it is the file path, not a
+        reference anyone wrote.
+        """
+        if direction not in {"out", "in", "both"}:
+            raise ValueError(f"direction {direction!r}")
+        if relation == "same_file":
+            path = uid.split("#", 1)[0].split(":", 1)[-1]
+            return [{"uid": r["uid"], "relation": "same_file", "title": r["title"],
+                     "kind": r["kind"], "direction": "both"}
+                    for r in self.db.execute(
+                        "SELECT uid, title, kind FROM doc WHERE path = ? AND uid != ? "
+                        "ORDER BY uid", (path, uid))]
+
+        out: list[dict[str, Any]] = []
+        if direction in {"out", "both"}:
+            out += [dict(r, direction="out") for r in self.db.execute(
+                "SELECT l.dst_uid AS uid, l.relation, l.status, d.title, d.kind "
+                "FROM link l LEFT JOIN doc d ON d.uid = l.dst_uid "
+                "WHERE l.src_uid = ? AND l.relation = ? "
+                "ORDER BY IFNULL(l.dst_uid, l.raw)", (uid, relation))]
+        if direction in {"in", "both"}:
+            out += [dict(r, direction="in") for r in self.db.execute(
+                "SELECT l.src_uid AS uid, l.relation, l.status, d.title, d.kind "
+                "FROM link l JOIN doc d ON d.uid = l.src_uid "
+                "WHERE l.dst_uid = ? AND l.relation = ? "
+                "ORDER BY l.src_uid", (uid, relation))]
+        return out
+
+    # -- what a gate is waiting for ----------------------------------------
+
+    def gaps(self, field: Optional[str] = None, gate: Optional[str] = None,
+             missing_only: bool = False) -> list[dict[str, Any]]:
+        """Registry coverage per (registry, field), rolled up.
+
+        The ratio stays over the whole registry even when only unfilled rows are
+        shown: "0 of 6" and "0 of 0" say different things.
+        """
+        sql = ["SELECT registry, field, gate, finding_code, "
+               "sum(present) AS filled, count(*) AS total FROM gap WHERE 1=1"]
+        params: list[Any] = []
+        if field:
+            sql.append("AND field = ?")
+            params.append(field)
+        if gate:
+            sql.append("AND gate = ?")
+            params.append(gate)
+        sql.append("GROUP BY registry, field, gate, finding_code "
+                   "ORDER BY filled, registry, field")
+        rows = [dict(r) for r in self.db.execute(" ".join(sql), params)]
+        if missing_only:
+            rows = [r for r in rows if not r["filled"]]
+        for r in rows:
+            r["blocked"] = r["filled"] == 0
+        return rows
+
+    def supplies(self, name: str) -> dict[str, Any]:
+        """What supplies a registry field, or what a gate is waiting for.
+
+        `name` is either a field (`bleach_photons`) or a gate (`G10`). Both are
+        answered from the same table because the question is the same one asked
+        from either end.
+        """
+        is_gate = bool(re.fullmatch(r"G\d+[a-z]?", name))
+        rolled = self.gaps(gate=name) if is_gate else self.gaps(field=name)
+        entries = [dict(r) for r in self.db.execute(
+            "SELECT registry, entry, field, present, gate FROM gap "
+            f"WHERE {'gate' if is_gate else 'field'} = ? "
+            "ORDER BY present, registry, entry", (name,))]
+        docs = [dict(r) for r in self.db.execute(
+            "SELECT uid, kind, evidence, tier, title FROM doc "
+            "WHERE title GLOB ? OR body GLOB ? ORDER BY uid LIMIT 20",
+            (f"*{name}*", f"*{name}*"))]
+        return {
+            "name": name,
+            "asked_as": "gate" if is_gate else "field",
+            "coverage": rolled,
+            "entries": entries,
+            "mentioned_in": docs,
+            "status": ("blocked" if rolled and all(r["blocked"] for r in rolled)
+                       else "partial" if rolled else "unknown"),
+        }
+
+    def broken_links(self) -> list[Finding]:
+        """References whose target is not in the repository at all.
+
+        `in_repo` is excluded: a reference to a file no adapter reads is not a
+        defect, and reporting it is how a link checker becomes noise.
+        """
+        return [
+            Finding("broken_cross_reference", f"{r['src_uid']} -> {r['raw']}",
+                    f"{r['relation']} target {r['dst_path'] or r['raw']!r} is not "
+                    "in the repository", "warn")
+            for r in self.db.execute(
+                "SELECT * FROM link WHERE status = 'missing' "
+                "ORDER BY src_uid, raw")
+        ]
+
+    def findings(self, check: Optional[str] = None) -> list[dict[str, Any]]:
+        """The drift report, as computed at build time.
+
+        Stored rather than recomputed so the server needs the index and nothing
+        else. A check that needs the source tree -- comparing a declared gate
+        against the code -- cannot run at query time anyway, because by then the
+        source may have moved and the index has not.
+        """
+        # `check` is a reserved word in SQLite, hence the quoting.
+        sql = 'SELECT check_name AS "check", subject, detail, severity FROM finding'
+        params: tuple = ()
+        if check:
+            sql += " WHERE check_name = ?"
+            params = (check,)
+        sql += " ORDER BY severity != 'error', check_name, subject"
+        return [dict(r) for r in self.db.execute(sql, params)]
+
+    def entry_defects(self) -> dict[str, Any]:
+        """Facts the doc table answers on its own, without a stored finding.
+
+        **`no_falsifier` is deliberately not here.** A first version listed every
+        document with `has_falsifier = 0`, which reported all three calibration
+        records -- a calibration *is* the measurement, and MS's convention places
+        the falsifier in `kb/expertise/` -- and listed the one real case three
+        times, once per section. `drift.py` already answers this correctly, by
+        asking whether the folder's own majority carries one, and a second worse
+        copy of a check is not a second check.
+        """
+        import datetime as _dt
+        today = _dt.date.today().isoformat()
+        expired = [dict(r) for r in self.db.execute(
+            "SELECT uid, review_after FROM doc WHERE review_after IS NOT NULL "
+            "AND review_after < ? ORDER BY review_after, uid", (today,))]
+        return {"review_expired": expired}
+
+    def link_counts(self) -> dict[str, int]:
+        return {r["status"]: r["n"] for r in self.db.execute(
+            "SELECT status, count(*) AS n FROM link GROUP BY status")}
 
     # -- retrieval ---------------------------------------------------------
 

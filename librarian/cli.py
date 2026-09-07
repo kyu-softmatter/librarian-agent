@@ -42,53 +42,110 @@ def cmd_scan(args) -> int:
 
 
 def cmd_gaps(args) -> int:
-    from librarian.gaps import gaps, gate_functions, missing_vocabulary
-    root = _root(args.repo)
-    gfs = gate_functions(root)
-    rows = gaps(root)
-
-    mods = sorted({g.module for g in gfs})
-    print(f"gates declared in a checks docstring: {len(gfs)}  "
-          f"across {len(mods)} modules ({', '.join(mods)})")
-    print(f"`missing.<field>` codes in the gate vocabulary: "
-          f"{len(missing_vocabulary(root))}\n")
-    by_field: dict[tuple[str, str, str | None], list] = {}
-    for g in rows:
-        by_field.setdefault((g.registry, g.field, g.gate), []).append(g)
-
+    from librarian.index import Index
+    if not INDEX.exists():
+        sys.exit("no index. Run: python -m librarian.cli reindex --repo ms")
+    idx = Index(INDEX)
+    try:
+        rows = idx.gaps(missing_only=args.missing_only)
+    finally:
+        idx.close()
     print(f"{'registry':26s} {'field':22s} {'gate':6s} {'code':26s} filled/total")
     print("-" * 96)
-    for (reg, fld, gate), gs in sorted(by_field.items(),
-                                       key=lambda kv: (sum(x.present for x in kv[1]), kv[0])):
-        have = sum(x.present for x in gs)
-        # --missing-only filters what is shown; the ratio stays over the whole
-        # registry, because "0 of 6" and "0 of 0" say different things.
-        if args.missing_only and have:
-            continue
-        mark = "  <- BLOCKED: nothing supplies it" if have == 0 else ""
-        code = gs[0].finding_code or "-"
-        print(f"{reg:26s} {fld:22s} {gate or '-':6s} {code:26s} {have:3d}/{len(gs):<3d}{mark}")
+    for r in rows:
+        mark = "  <- BLOCKED: nothing supplies it" if r["blocked"] else ""
+        print(f"{r['registry']:26s} {r['field']:22s} {r['gate'] or '-':6s} "
+              f"{r['finding_code'] or '-':26s} "
+              f"{r['filled']:3d}/{r['total']:<3d}{mark}")
     return 0
 
 
+def cmd_supplies(args) -> int:
+    import json
+
+    from librarian.index import Index
+    if not INDEX.exists():
+        sys.exit("no index. Run: python -m librarian.cli reindex --repo ms")
+    idx = Index(INDEX)
+    try:
+        out = idx.supplies(args.name)
+    finally:
+        idx.close()
+    if args.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+    print(f"{out['name']}  (asked as a {out['asked_as']})  status={out['status']}\n")
+    for r in out["coverage"]:
+        print(f"  {r['registry']} > {r['field']}  gate={r['gate'] or '-'}  "
+              f"{r['filled']}/{r['total']}"
+              + ("   <- BLOCKED" if r["blocked"] else ""))
+    unfilled = [e for e in out["entries"] if not e["present"]]
+    if unfilled:
+        print(f"\n  entries without it ({len(unfilled)}):")
+        for e in unfilled[:12]:
+            print(f"    {e['registry']} > {e['entry']}")
+    if out["mentioned_in"]:
+        print(f"\n  mentioned in {len(out['mentioned_in'])} documents:")
+        for d in out["mentioned_in"][:8]:
+            print(f"    {d['uid']}  ({d['kind']}, evidence={d['evidence']})")
+    return 0
+
+
+def _broken_link_findings(links) -> list:
+    """A reference whose target is absent from the repository.
+
+    `in_repo` is excluded: a reference to a file no adapter reads is not a
+    defect, and reporting it is how a link checker becomes noise.
+    """
+    from librarian.doc import Finding
+    return [
+        Finding("broken_cross_reference", f"{l.src_uid} -> {l.raw}",
+                f"{l.relation} target {l.dst_path or l.raw!r} is not in the "
+                "repository", "warn")
+        for l in links if l.status == "missing"
+    ]
+
+
 def cmd_reindex(args) -> int:
+    from librarian.drift import drift
+    from librarian.gaps import gaps as compute_gaps
     from librarian.index import build, manifest
+    from librarian.links import extract
     from librarian.scan import scan
-    docs, shas = [], {}
+    docs, links, gap_rows, findings, shas = [], [], [], [], {}
     for repo in args.repo:
         rep = scan(_root(repo))
         errs = [f for f in rep.findings if f.severity == "error"]
         if errs:
             _print_findings(errs)
             return 1
+        ls = extract(rep.docs, rep.repo_files, rep.source_text)
+        gs = compute_gaps(_root(repo))
+        fs = drift(_root(repo), repo) + _broken_link_findings(ls)
         docs += rep.docs
+        links += ls
+        gap_rows += gs
+        findings += fs
         shas[repo] = rep.sha
-        print(f"  {repo}@{rep.sha}: {len(rep.docs)} docs")
-    n = build(docs, INDEX, shas)
+        print(f"  {repo}@{rep.sha}: {len(rep.docs)} docs, {len(ls)} links, "
+              f"{len(gs)} gap rows, {len(fs)} findings")
+    n = build(docs, INDEX, shas, links, gap_rows, findings)
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     MANIFEST.write_text(manifest(shas, n))
     print(f"\nwrote {INDEX.relative_to(ROOT)} -- {n} docs")
     print(f"wrote {MANIFEST.relative_to(ROOT)}")
+
+    from librarian.index import Index
+    idx = Index(INDEX)
+    try:
+        counts = idx.link_counts()
+        print(f"\nlinks: {counts}")
+        stored = idx.findings()
+        if stored:
+            print(f"\nfindings stored in the index: {len(stored)}")
+            _print_rows(stored)
+    finally:
+        idx.close()
     return 0
 
 
@@ -131,13 +188,95 @@ def cmd_search(args) -> int:
     return 0
 
 
+def cmd_get(args) -> int:
+    import json
+
+    from librarian.index import Index
+    if not INDEX.exists():
+        sys.exit("no index. Run: python -m librarian.cli reindex --repo ms")
+    idx = Index(INDEX)
+    try:
+        d = idx.get(args.uid)
+    finally:
+        idx.close()
+    if d is None:
+        print(f"not_found: {args.uid}")
+        print("  no document, and no other section of that path either.")
+        return 1
+    if d.get("status") == "not_found":
+        print(f"not_found: {args.uid}")
+        print("  the path is indexed but not that locator. Sections there:")
+        for u in d["near"]:
+            print(f"    {u}")
+        return 1
+    if args.json:
+        print(json.dumps(d, indent=2, ensure_ascii=False))
+        return 0
+    print(f"{d['uid']}\n")
+    print(f"  title        {d['title']}")
+    print(f"  kind         {d['kind']}   origin={d['origin']}")
+    print(f"  evidence     {d['evidence']}  tier={d['tier']}  "
+          f"advances={d['advances']}")
+    print(f"  falsifier    {d['has_falsifier']}   review_after={d['review_after']}")
+    print(f"  provenance   {d['provenance']}   reproduced={d['reproduced']}")
+    if d["conditions"]:
+        print(f"  conditions   {d['conditions']}")
+    print(f"  refs out     {len(d['links_out'])}   refs in {len(d['links_in'])}")
+    print("\n" + (d["body"] or "(no body)"))
+    return 0
+
+
+def cmd_neighbors(args) -> int:
+    import json
+
+    from librarian.index import Index
+    if not INDEX.exists():
+        sys.exit("no index. Run: python -m librarian.cli reindex --repo ms")
+    idx = Index(INDEX)
+    try:
+        rows = idx.neighbors(args.uid, relation=args.relation, direction=args.direction)
+    finally:
+        idx.close()
+    if args.json:
+        print(json.dumps(rows, indent=2, ensure_ascii=False))
+        return 0
+    if not rows:
+        print(f"no {args.relation} neighbours {args.direction} of {args.uid}")
+        return 0
+    for r in rows:
+        arrow = "->" if r["direction"] == "out" else "<-"
+        st = f"  [{r.get('status')}]" if r.get("status") not in (None, "indexed") else ""
+        print(f"{arrow} {r['uid'] or '(unresolved)'}{st}")
+        if r.get("title"):
+            print(f"     {r['title'][:92]}")
+    return 0
+
+
 def cmd_drift(args) -> int:
     from librarian.drift import drift
     findings = []
     for repo in args.repo:
         findings += drift(_root(repo), repo)
+    if INDEX.exists():
+        from librarian.index import Index
+        idx = Index(INDEX)
+        try:
+            findings += idx.broken_links()
+        finally:
+            idx.close()
     _print_findings(findings, always=True)
     return 1 if any(f.severity == "error" for f in findings) else 0
+
+
+def _print_rows(rows) -> None:
+    """Findings as they come out of the index -- dicts, not Finding objects."""
+    from collections import Counter as _C
+    print(f"  {dict(_C(r['check'] for r in rows))}\n")
+    for r in rows:
+        tag = "ERROR" if r["severity"] == "error" else "warn "
+        print(f"  [{tag}] {r['check']}")
+        print(f"          {r['subject']}")
+        print(f"          {r['detail']}")
 
 
 def _print_findings(findings, always: bool = False) -> None:
@@ -163,9 +302,13 @@ def main(argv=None) -> int:
     s.set_defaults(fn=cmd_scan)
 
     g = sub.add_parser("gaps", help="which gate is BLOCKED for want of which field")
-    g.add_argument("--repo", default="ms")
     g.add_argument("--missing-only", action="store_true")
     g.set_defaults(fn=cmd_gaps)
+
+    sp = sub.add_parser("supplies", help="what supplies a field, or what a gate waits for")
+    sp.add_argument("name", help="a registry field (bleach_photons) or a gate (G10)")
+    sp.add_argument("--json", action="store_true")
+    sp.set_defaults(fn=cmd_supplies)
 
     r = sub.add_parser("reindex", help="rebuild the index from scratch")
     r.add_argument("--repo", action="append", default=None)
@@ -179,6 +322,20 @@ def main(argv=None) -> int:
                    help="hard filter, opt-in only: measured | assumed | confirmed_default")
     q.add_argument("--json", action="store_true")
     q.set_defaults(fn=cmd_search)
+
+    g2 = sub.add_parser("get", help="one document in full, with its references")
+    g2.add_argument("uid")
+    g2.add_argument("--json", action="store_true")
+    g2.set_defaults(fn=cmd_get)
+
+    nb = sub.add_parser("neighbors", help="documents one hop away in the reference graph")
+    nb.add_argument("uid")
+    nb.add_argument("--relation", default="cites",
+                    choices=["cites", "supersedes", "superseded_by", "applies_to",
+                             "same_file"])
+    nb.add_argument("--direction", default="out", choices=["out", "in", "both"])
+    nb.add_argument("--json", action="store_true")
+    nb.set_defaults(fn=cmd_neighbors)
 
     d = sub.add_parser("drift", help="does what is declared still match what exists")
     d.add_argument("--repo", action="append", default=None)

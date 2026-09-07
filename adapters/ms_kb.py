@@ -67,7 +67,13 @@ def _md_docs(path: Path, rel: str, folder: str, sha: str) -> list[Doc]:
         evidence = None
 
     review = _value(fm.get("review_after"))
-    title = first_heading(body) or _value(fm.get("id")) or path.stem
+    # A level-1 heading, else what the frontmatter declares. `question` is the
+    # better title where it exists -- MS's expertise entries state the question
+    # the entry answers, which is what a reader is scanning for.
+    title = (first_heading(body, level=1)
+             or _value(fm.get("question"))
+             or _value(fm.get("id"))
+             or path.stem)
 
     common = dict(
         repo="ms", path=rel, commit_sha=sha, kind=FOLDER_KIND[folder],

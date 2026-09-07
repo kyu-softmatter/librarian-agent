@@ -13,6 +13,14 @@ from typing import Any
 import yaml
 
 _FM = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
+#: A fenced block. Anything inside one is being **shown**, not stated -- so a
+#: `##` line in there is not a heading and a `[[link]]` in there is not a
+#: reference. `docs/09-knowledge-capture.md` fences a worked example of an
+#: expertise entry, `## Related` section and all; treating that as a real
+#: heading produced a phantom section whose two wikilinks were then reported as
+#: broken references to entries nobody had written.
+_FENCE = re.compile(r"^[ \t]*(?:```|~~~).*?(?:^[ \t]*(?:```|~~~)[ \t]*$|\Z)",
+                    re.MULTILINE | re.DOTALL)
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 # The contract is a **section**, not a word. MS's literature template makes
 # `## Falsification conditions` mandatory and `kb/expertise/` follows it.
@@ -65,13 +73,30 @@ class Section:
     body: str
 
 
+def fenced_spans(text: str) -> list[tuple[int, int]]:
+    """Character ranges covered by fenced code blocks."""
+    return [(m.start(), m.end()) for m in _FENCE.finditer(text)]
+
+
+def _in_fence(pos: int, spans: list[tuple[int, int]]) -> bool:
+    return any(a <= pos < b for a, b in spans)
+
+
+def strip_fences(text: str) -> str:
+    """Fenced blocks removed, for callers that must not read examples as claims."""
+    return _FENCE.sub("", text)
+
+
 def sections(body: str, min_level: int = 2) -> list[Section]:
     """Top-level sections of a markdown body.
 
     A body with no headings yields one whole-file section with locator '#', so
-    every document has a coordinate.
+    every document has a coordinate. Headings inside a fenced block are not
+    headings -- see `_FENCE`.
     """
-    heads = [m for m in _HEADING.finditer(body) if len(m.group(1)) <= min_level]
+    spans = fenced_spans(body)
+    heads = [m for m in _HEADING.finditer(body)
+             if len(m.group(1)) <= min_level and not _in_fence(m.start(), spans)]
     if not heads:
         text = body.strip()
         return [Section(0, "", "#", text)] if text else []
@@ -109,11 +134,26 @@ def has_falsifier(text: str) -> bool:
     which is the failure this check exists to report, answered backwards.
     """
     _, body = frontmatter(text)
-    if any(_FALSIFIER_HEADING.search(m.group(2)) for m in _HEADING.finditer(body)):
+    spans = fenced_spans(body)
+    if any(_FALSIFIER_HEADING.search(m.group(2))
+           for m in _HEADING.finditer(body) if not _in_fence(m.start(), spans)):
         return True
-    return bool(_FALSIFIER_PROSE.search(body))
+    return bool(_FALSIFIER_PROSE.search(strip_fences(body)))
 
 
-def first_heading(text: str) -> str:
-    m = _HEADING.search(text)
-    return m.group(2).strip() if m else ""
+def first_heading(text: str, level: int | None = None) -> str:
+    """The first heading, optionally restricted to one level.
+
+    The restriction matters. MS's `kb/expertise/` files carry frontmatter and
+    then open at `## Verdict`, with no level-1 title, so an unrestricted search
+    returns "Verdict" as the document title and every section is then titled
+    "Verdict -- Verdict". A level-1 search returns nothing there and lets the
+    caller fall back to what the frontmatter declares.
+    """
+    spans = fenced_spans(text)
+    for m in _HEADING.finditer(text):
+        if _in_fence(m.start(), spans):
+            continue
+        if level is None or len(m.group(1)) == level:
+            return m.group(2).strip()
+    return ""

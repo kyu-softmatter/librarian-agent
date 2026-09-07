@@ -151,12 +151,12 @@ librarian-agent/
 ├── librarian/             the package: doc model · scan · gaps · drift · cli
 ├── adapters/              one parser per repo contract
 ├── tests/                 unit + integration; Phase 0's exit condition is asserted
-├── mcp/                   the MCP server
+├── mcp_server/            the MCP server (not `mcp_server/` -- that name shadows the SDK)
 └── cache/                 gitignored — shallow clones of the three repos
 ```
 
 **Code is not one of the four zones.** `librarian/`, `adapters/`, `tests/` and
-`mcp/` hold code, which is versioned and reviewed as code. The four zones below
+`mcp_server/` hold code, which is versioned and reviewed as code. The four zones below
 describe **data**, where the question is who may overwrite what.
 
 **The four zones:**

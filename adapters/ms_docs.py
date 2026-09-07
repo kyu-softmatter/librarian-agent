@@ -27,7 +27,7 @@ def ms_docs(root: Path, sha: str) -> list[Doc]:
         rel = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8", errors="replace")
         _, body = frontmatter(text)
-        doc_title = first_heading(body) or path.stem
+        doc_title = first_heading(body, level=1) or path.stem
         falsifier = has_falsifier(text)
         for s in sections(body):
             out.append(Doc(
