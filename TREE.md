@@ -149,6 +149,9 @@ librarian-agent/
 │   └── inbox/                 LLM proposals awaiting human approval
 │
 ├── profiles/              caller_profile YAML → PLAN.md §5.1
+├── demo/                  ○ PRESENTATION. Three pages over the live server, and
+│                       the launcher that previews the §3.4 transport. Read by
+│                       nobody; deleting it loses nothing
 ├── librarian/             the package: doc model · scan · gaps · drift · index ·
 │                       links · archive · cli
 ├── adapters/              one parser per repo contract

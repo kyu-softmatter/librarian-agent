@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>librarian — ask</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: light;
+    --plane:#f9f9f7; --surface:#fcfcfb;
+    --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+    --blue:#256abf; --link:#184f95;
+    --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
+    --mono:ui-monospace,SFMono-Regular,"Cascadia Mono",Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--plane); color:var(--ink);
+         font:15px/1.6 var(--sans); -webkit-font-smoothing:antialiased; }
+
+  /* ---- nav ---- */
+  nav { display:flex; gap:14px; align-items:center; padding:10px 20px;
+        border-bottom:1px solid var(--grid); font-size:12.5px; }
+  nav a { color:var(--ink-2); text-decoration:none; padding:3px 8px; border-radius:6px; }
+  nav a:hover { background:var(--surface); }
+  nav a[aria-current="page"] { background:var(--surface); border:1px solid var(--ring);
+                               color:var(--ink); font-weight:600; }
+  nav .sp { margin-left:auto; color:var(--muted); font:12px/1.5 var(--mono); }
+
+  /* ---- ask ---- */
+  main { max-width:820px; margin:0 auto; padding:0 20px 64px; }
+  .hero { padding:56px 0 22px; text-align:center; transition:padding .18s ease; }
+  body.answered .hero { padding:22px 0 14px; text-align:left; }
+  .mark { font-size:34px; font-weight:650; letter-spacing:-.02em; }
+  body.answered .mark { font-size:22px; }
+  .mark span { color:var(--muted); font-weight:400; }
+  .hero p { margin:6px auto 0; color:var(--ink-2); font-size:13.5px; max-width:60ch; }
+  body.answered .hero p { display:none; }
+
+  form { display:flex; gap:8px; margin:22px 0 0; align-items:center; flex-wrap:wrap; }
+  .box { flex:1 1 420px; display:flex; align-items:center; gap:9px; background:var(--surface);
+         border:1px solid var(--ring); border-radius:999px; padding:11px 18px; }
+  .box:focus-within { border-color:var(--axis); box-shadow:0 1px 6px rgba(11,11,11,.06); }
+  .box svg { flex:none; color:var(--muted); }
+  .box input { flex:1; border:0; outline:0; background:transparent; color:var(--ink);
+               font:15px/1.4 var(--sans); min-width:0; }
+  select { font:12.5px/1.4 var(--mono); padding:9px 11px; border-radius:999px;
+           border:1px solid var(--ring); background:var(--surface); color:var(--ink); }
+  button.ask { font:600 14px/1 var(--sans); padding:12px 22px; border-radius:999px;
+               border:1px solid var(--blue); background:var(--blue); color:#fff; cursor:pointer; }
+
+  .meta { margin:16px 0 0; font-size:12.5px; color:var(--muted); display:flex; gap:12px;
+          flex-wrap:wrap; align-items:center; }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:2px 9px; border-radius:999px;
+          border:1px solid var(--ring); background:var(--surface);
+          font:12px/1.7 var(--sans); color:var(--ink-2); white-space:nowrap; }
+  .chip .dot { width:7px; height:7px; border-radius:50%; background:var(--muted); flex:none; }
+  .chip.ok .dot{background:var(--good)} .chip.warn .dot{background:var(--warning)}
+  .chip.bad .dot{background:var(--critical)}
+  .chip.ms { border-color:rgba(37,106,191,.35); color:#1a4d8f; }
+  .chip.bd { border-color:rgba(235,104,52,.4); color:#a8431c; }
+
+  /* ---- results ---- */
+  .hit { padding:18px 0; border-bottom:1px solid var(--grid); }
+  .hit:last-child { border-bottom:0; }
+  .uid { font:12px/1.5 var(--mono); color:#0a6b2f; word-break:break-all; }
+  .hit h3 { margin:3px 0 0; font-size:17.5px; font-weight:520; line-height:1.35;
+            color:var(--link); letter-spacing:-.005em; }
+  .snip { margin:5px 0 0; color:var(--ink-2); font-size:13.5px;
+          display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
+          overflow:hidden; }
+  .row { display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin-top:9px; }
+  .cite { font:600 11.5px/1 var(--sans); padding:5px 10px; border-radius:999px; cursor:pointer;
+          border:1px dashed var(--axis); background:transparent; color:var(--ink-2); }
+  .cite[aria-pressed="true"] { border-style:solid; border-color:var(--good);
+                               background:rgba(12,163,12,.08); color:#0a6b2f; }
+  .score { font:12px/1 var(--mono); color:var(--muted); font-variant-numeric:tabular-nums; }
+
+  .empty { margin:26px 0; padding:16px 18px; border-radius:10px; background:var(--surface);
+           border:1px solid var(--ring); border-left:3px solid var(--warning); }
+  .empty b { display:block; margin-bottom:4px; }
+
+  /* ---- log ---- */
+  details.log { margin:34px 0 0; }
+  details.log summary { cursor:pointer; font-size:13px; color:var(--ink-2); }
+  table { width:100%; border-collapse:collapse; margin-top:12px; }
+  th,td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--grid);
+          font-size:12.5px; vertical-align:top; }
+  thead th { font-size:11px; color:var(--muted); text-transform:uppercase;
+             letter-spacing:.045em; border-bottom-color:var(--axis); }
+  td.q { font:12.5px/1.5 var(--mono); }
+  footer { max-width:820px; margin:0 auto; padding:0 20px 48px;
+           font-size:12.5px; color:var(--ink-2); }
+  code { font:12.5px/1.5 var(--mono); }
+</style>
+
+<nav>
+  <a href="search.html" aria-current="page">ask</a>
+  <a href="live.html">MCP console</a>
+  <a href="index.html">summary</a>
+  <span class="sp" id="prov">…</span>
+</nav>
+
+<main>
+  <div class="hero">
+    <div class="mark">librarian <span>— ask</span></div>
+    <p>One index over two repositories. Every answer is a quotation with its
+      location attached, and the profile you pick changes what surfaces.</p>
+  </div>
+
+  <form id="f">
+    <label class="box">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" placeholder="ask anything in the corpus — English or 한국어"
+             autocomplete="off" autofocus>
+    </label>
+    <select id="p" title="caller profile">
+      <option value="neutral">neutral</option>
+      <option value="ms:lens-5-photo-perturbation">ms:lens-5-photo-perturbation</option>
+      <option value="ms:lens-4-sample-optics">ms:lens-4-sample-optics</option>
+    </select>
+    <button class="ask" type="submit">Ask</button>
+  </form>
+
+  <div class="meta" id="meta"></div>
+  <div id="out"></div>
+
+  <details class="log" id="logbox">
+    <summary>What has been asked here</summary>
+    <div id="logtable"></div>
+  </details>
+</main>
+
+<footer>
+  <p><b>Zero results is an answer.</b> <code>searched_empty</code> means the corpus was
+    searched and held nothing — which is different from never having looked
+    (<code>not_searched</code>), and different again from a broken tool.</p>
+  <p><b>The log records the fact, not a judgment.</b> Every query is written to
+    <code>kb/08-retrieval/sessions/</code> with <code>verdict: not_searched</code>, because an
+    unrecorded query is not “it was fine”. Pressing <em>cite</em> is what reports that a hit was
+    actually used — that field is never inferred. There is no rating: a stored score would become a
+    claim that one entry matters more.</p>
+  <p>That folder is gitignored on purpose. Raw query text in a public repository is a disclosure —
+    what someone was looking for is what they are about to do — so these stay local until the
+    publish gate is settled.</p>
+</footer>
+
+<script>
+let id = 0, session = null, lastHits = [];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function rpc(method, params) {
+  const r = await fetch('/mcp', {
+    method:'POST',
+    headers:{'Content-Type':'application/json',
+             'Accept':'application/json, text/event-stream'},
+    body: JSON.stringify({ jsonrpc:'2.0', id:++id, method,
+                           ...(params ? {params} : {}) }),
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message || 'rpc error');
+  return JSON.parse(j.result.content[0].text);
+}
+
+async function logPost(body) {
+  const r = await fetch('/log', { method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  return r.ok ? r.json() : null;
+}
+
+function repoOf(uid) { return String(uid).split(':')[0]; }
+
+function tierChip(h) {
+  if (h.advances) return `<span class="chip ok"><span class="dot"></span>measured · may advance</span>`;
+  if (h.evidence) return `<span class="chip warn"><span class="dot"></span>${esc(h.evidence)} · cannot advance</span>`;
+  return `<span class="chip">no tier</span>`;
+}
+
+function render(res) {
+  document.body.classList.add('answered');
+  lastHits = res.hits || [];
+
+  const stale = res.index_stale
+    ? `<span class="chip bad"><span class="dot"></span>index_stale</span>`
+    : `<span class="chip ok"><span class="dot"></span>index fresh</span>`;
+  const terms = [...(res.terms_matched || []), ...(res.terms_globbed || [])];
+  $('#meta').innerHTML = [
+    `<span class="chip">${lastHits.length} hits</span>`,
+    `<span class="chip">status: ${esc(res.status)}</span>`,
+    stale,
+    terms.length ? `<span class="chip">terms: ${esc(terms.join(' '))}</span>` : '',
+  ].join('');
+
+  if (!lastHits.length) {
+    $('#out').innerHTML = `<div class="empty"><b>searched_empty</b>
+      The corpus was searched and held nothing for this. That is a result, not a failure —
+      and it is the one that says which entry is missing.</div>`;
+    if (session) logPost({ id: session, verdict: 'no_result' });
+    return;
+  }
+
+  $('#out').innerHTML = lastHits.map((h, i) => {
+    const r = repoOf(h.uid);
+    return `<div class="hit">
+      <div class="uid">${esc(h.uid)}</div>
+      <h3>${esc(h.title || h.uid)}</h3>
+      <p class="snip">${esc(h.body || '')}</p>
+      <div class="row">
+        <span class="chip ${r === 'bd' ? 'bd' : 'ms'}">${esc(r)}</span>
+        <span class="chip">${esc(h.kind || '—')}</span>
+        ${tierChip(h)}
+        ${h.has_falsifier ? `<span class="chip ok"><span class="dot"></span>falsifier</span>` : ''}
+        ${h.reproduced === 'no' ? `<span class="chip warn"><span class="dot"></span>not reproduced — a record, not grounds</span>` : ''}
+        <span class="score">${(h.score ?? 0).toFixed(3)}</span>
+        <button class="cite" data-i="${i}" aria-pressed="false">cite</button>
+      </div></div>`;
+  }).join('');
+
+  $('#out').querySelectorAll('.cite').forEach(b => b.onclick = () => cite(b));
+}
+
+async function cite(btn) {
+  const on = btn.getAttribute('aria-pressed') !== 'true';
+  btn.setAttribute('aria-pressed', String(on));
+  const cited = [...$('#out').querySelectorAll('.cite')]
+    .filter(b => b.getAttribute('aria-pressed') === 'true')
+    .map(b => lastHits[+b.dataset.i].uid);
+  // Rank matters to the verdict: a hit cited from the top is `useful`; the same
+  // hit cited from position four says the ranking was wrong, not the corpus.
+  const idxs = [...$('#out').querySelectorAll('.cite')]
+    .map((b, i) => b.getAttribute('aria-pressed') === 'true' ? i : -1)
+    .filter(i => i >= 0);
+  const verdict = !idxs.length ? 'not_searched'
+                : Math.min(...idxs) <= 1 ? 'useful' : 'wrong_ranking';
+  if (session) await logPost({ id: session, cited, verdict });
+  loadLog();
+}
+
+async function ask(ev) {
+  ev && ev.preventDefault();
+  const question = $('#q').value.trim();
+  if (!question) return;
+  const profile = $('#p').value;
+  $('#out').innerHTML = '';
+  $('#meta').innerHTML = `<span class="chip">searching…</span>`;
+  try {
+    const res = await rpc('tools/call', { name:'kb_search',
+      arguments:{ question, caller_profile: profile, limit: 8 } });
+    const rec = await logPost({
+      query: question, caller_profile: profile, asked_by: 'human',
+      index_sha: JSON.stringify(res.indexed_at || res.index_sha || null),
+      index_stale: !!res.index_stale,
+      returned: (res.hits || []).map(h => h.uid),
+    });
+    session = rec && rec.id;
+    render(res);
+    loadLog();
+  } catch (e) {
+    $('#meta').innerHTML = `<span class="chip bad"><span class="dot"></span>${esc(e.message)}</span>`;
+    $('#out').innerHTML = `<div class="empty"><b>The server did not answer</b>
+      This is a transport failure, not an empty corpus — the two are deliberately
+      different. Is the launcher still running?</div>`;
+  }
+}
+
+async function loadLog() {
+  try {
+    const r = await fetch('/log'); if (!r.ok) return;
+    const { sessions, count } = await r.json();
+    $('#logbox').querySelector('summary').textContent =
+      `What has been asked here — ${count} recorded`;
+    $('#logtable').innerHTML = !sessions.length ? '<p style="color:var(--muted)">nothing yet</p>'
+      : `<table><thead><tr><th>when</th><th>query</th><th>profile</th>
+         <th>returned</th><th>cited</th><th>verdict</th></tr></thead><tbody>` +
+        sessions.map(s => `<tr>
+          <td>${esc((s.at || '').replace('T', ' ').slice(5))}</td>
+          <td class="q">${esc(s.query)}</td>
+          <td class="q">${esc(s.caller_profile)}</td>
+          <td>${(s.returned || []).length}</td>
+          <td>${(s.cited || []).length}</td>
+          <td>${esc(s.verdict)}</td></tr>`).join('') + `</tbody></table>`;
+  } catch {}
+}
+
+$('#f').onsubmit = ask;
+
+(async function boot() {
+  loadLog();
+  try {
+    const d = await rpc('tools/call', { name:'kb_stale', arguments:{} });
+    const repos = Object.entries(d.indexed_at || {}).map(([k, v]) => `${k}@${v}`).join(' · ');
+    $('#prov').textContent = `${d.doc_count} docs · ${repos}`;
+  } catch { $('#prov').textContent = 'server not reachable'; }
+})();
+</script>
+</html>

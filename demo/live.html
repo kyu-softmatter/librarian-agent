@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>librarian — live MCP console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: light;
+    --plane: #f9f9f7; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,.10);
+    --blue: #256abf; --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px 20px 48px; background:var(--plane); color:var(--ink);
+         font:15px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  header { display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap;
+           padding-bottom:14px; border-bottom:1px solid var(--grid); }
+  h1 { margin:0; font-size:25px; font-weight:650; letter-spacing:-.015em; }
+  h1 span { color:var(--muted); font-weight:400; }
+  .sub { margin:4px 0 0; color:var(--ink-2); font-size:13.5px; max-width:66ch; }
+  .status { margin-left:auto; font-size:12.5px; text-align:right; color:var(--ink-2); }
+
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:2px 9px;
+          border-radius:999px; border:1px solid var(--ring); background:var(--surface);
+          font:12px/1.7 var(--sans); color:var(--ink-2); white-space:nowrap; }
+  .chip .dot { width:7px; height:7px; border-radius:50%; flex:none; background:var(--muted); }
+  .chip.ok .dot { background:var(--good); } .chip.bad .dot { background:var(--critical); }
+  .chip.wait .dot { background:var(--warning); }
+
+  .card { background:var(--surface); border:1px solid var(--ring); border-radius:10px; }
+
+  .tools { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 0; }
+  button { font:600 12.5px/1 var(--mono); padding:9px 13px; border-radius:8px; cursor:pointer;
+           border:1px solid var(--ring); background:var(--surface); color:var(--ink); }
+  button:hover { border-color:var(--axis); }
+  button[aria-pressed="true"] { background:var(--blue); border-color:var(--blue); color:#fff; }
+
+  .args { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin:14px 0 0;
+          padding:13px 14px; }
+  label { display:block; font-size:11.5px; color:var(--muted); text-transform:uppercase;
+          letter-spacing:.045em; margin-bottom:4px; }
+  input, select { font:13px/1.4 var(--mono); padding:7px 9px; border-radius:7px;
+                  border:1px solid var(--ring); background:var(--plane); color:var(--ink); }
+  input { min-width:min(420px, 100%); }
+  .go { font:600 13px/1 var(--sans); background:var(--blue); border-color:var(--blue); color:#fff;
+        padding:10px 18px; }
+
+  h2 { margin:26px 0 8px; font-size:13px; font-weight:650; color:var(--ink-2);
+       text-transform:uppercase; letter-spacing:.05em; }
+  pre { font:12.5px/1.65 var(--mono); background:var(--surface); border:1px solid var(--ring);
+        border-radius:9px; padding:13px 15px; overflow-x:auto; margin:0;
+        max-height:min(52vh, 620px); overflow-y:auto; white-space:pre-wrap;
+        word-break:break-word; }
+  pre.req { max-height:none; color:var(--ink-2); }
+  .hint { margin:8px 0 0; font-size:12.5px; color:var(--muted); }
+  footer { margin-top:32px; padding-top:14px; border-top:1px solid var(--grid);
+           font-size:12.5px; color:var(--ink-2); }
+  code { font:12.5px/1.5 var(--mono); }
+</style>
+
+<div class="wrap">
+<nav style="display:flex;gap:14px;align-items:center;padding:0 0 14px;margin-bottom:14px;
+            border-bottom:1px solid var(--grid);font-size:12.5px">
+  <a href="search.html" style="color:var(--ink-2);text-decoration:none;padding:3px 8px;
+     border-radius:6px">ask</a>
+  <a href="live.html" aria-current="page" style="color:var(--ink);text-decoration:none;
+     padding:3px 8px;border-radius:6px;background:var(--surface);border:1px solid var(--ring);
+     font-weight:600">MCP console</a>
+  <a href="index.html" style="color:var(--ink-2);text-decoration:none;padding:3px 8px;
+     border-radius:6px">summary</a>
+</nav>
+<header>
+  <div>
+    <h1>librarian <span>— live MCP console</span></h1>
+    <p class="sub">This page calls the real MCP server over <code>POST /mcp</code> on this same
+      origin. Nothing here is canned: every response below came back from the index built by
+      <code>librarian reindex</code>.</p>
+  </div>
+  <div class="status">
+    <div id="conn"><span class="chip wait"><span class="dot"></span>connecting…</span></div>
+    <div id="prov" style="margin-top:6px; color:var(--muted)"></div>
+  </div>
+</header>
+
+<div class="tools" id="tools"></div>
+
+<div class="card args" id="args"></div>
+
+<h2>Request sent</h2>
+<pre class="req" id="req">—</pre>
+
+<h2>Response</h2>
+<pre id="res">Pick a tool and press Call.</pre>
+<p class="hint" id="hint"></p>
+
+<footer>
+  <p><b>Seven read tools, all annotated read-only</b> — nothing on this page can write to any
+    repository. The transport is <code>streamable-http</code>, stateless: one self-contained POST
+    per call, which is why a browser can speak it without holding a session.</p>
+  <p>v1 ships <code>stdio</code> and this is a preview of the always-on service PLAN.md §3.4
+    describes. The server code is identical — only the transport argument differs.</p>
+</footer>
+</div>
+
+<script>
+const TOOLS = {
+  kb_stale:     { args: [] },
+  kb_gaps:      { args: [ {k:'missing_only', type:'select', opts:['true','false'], def:'true'} ] },
+  kb_search:    { args: [ {k:'question', type:'text', def:'what limits how long I can image this dye'},
+                          {k:'caller_profile', type:'select',
+                           opts:['ms:lens-5-photo-perturbation','ms:lens-4-sample-optics','neutral'],
+                           def:'ms:lens-5-photo-perturbation'},
+                          {k:'limit', type:'select', opts:['3','5','10'], def:'3'} ] },
+  kb_inputs:    { args: [ {k:'computation', type:'text', def:'radial_stiffness_n_per_m'} ] },
+  kb_supplies:  { args: [ {k:'name', type:'text', def:'G10'} ] },
+  kb_get:       { args: [ {k:'uid', type:'text',
+                           def:'ms:kb/expertise/sample-medium-refractive-index.md#verdict'} ] },
+  kb_neighbors: { args: [ {k:'uid', type:'text',
+                           def:'ms:kb/expertise/oil-objective-trapping-in-water.md#verdict'} ] },
+};
+const ORDER = ['kb_stale','kb_gaps','kb_search','kb_inputs','kb_supplies','kb_get','kb_neighbors'];
+let current = 'kb_search', id = 0;
+
+const $ = s => document.querySelector(s);
+
+async function rpc(method, params) {
+  const body = { jsonrpc: '2.0', id: ++id, method, ...(params ? { params } : {}) };
+  const r = await fetch('/mcp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json',
+               'Accept': 'application/json, text/event-stream' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return { sent: body, got: await r.json() };
+}
+
+function renderTools() {
+  $('#tools').innerHTML = ORDER.map(n =>
+    `<button data-t="${n}" aria-pressed="${n === current}">${n}</button>`).join('');
+  $('#tools').querySelectorAll('button').forEach(b =>
+    b.onclick = () => { current = b.dataset.t; renderTools(); renderArgs(); });
+}
+
+function renderArgs() {
+  const spec = TOOLS[current].args;
+  const fields = spec.length ? spec.map(a => {
+    if (a.type === 'select')
+      return `<div><label for="a-${a.k}">${a.k}</label><select id="a-${a.k}">` +
+        a.opts.map(o => `<option${o === a.def ? ' selected' : ''}>${o}</option>`).join('') +
+        `</select></div>`;
+    return `<div><label for="a-${a.k}">${a.k}</label>` +
+      `<input id="a-${a.k}" value="${a.def.replace(/"/g, '&quot;')}"></div>`;
+  }).join('') : `<div style="color:var(--muted); font-size:13px; padding-bottom:6px">
+                   no arguments</div>`;
+  $('#args').innerHTML = fields +
+    `<div><button class="go" id="call">Call ${current}</button></div>`;
+  $('#call').onclick = call;
+}
+
+function collect() {
+  const out = {};
+  for (const a of TOOLS[current].args) {
+    let v = $('#a-' + a.k).value;
+    if (a.k === 'limit') v = parseInt(v, 10);
+    else if (a.k === 'missing_only') v = (v === 'true');
+    out[a.k] = v;
+  }
+  return out;
+}
+
+async function call() {
+  $('#res').textContent = 'calling…';
+  $('#hint').textContent = '';
+  try {
+    const { sent, got } = await rpc('tools/call',
+      { name: current, arguments: collect() });
+    $('#req').textContent = JSON.stringify(sent, null, 2);
+    const blocks = got.result && got.result.content;
+    if (blocks && blocks.length) {
+      // Tools return one text block holding JSON. Pretty-print it if it parses;
+      // show it verbatim if it does not, rather than hiding a shape change.
+      const t = blocks.map(b => b.text).join('\n');
+      try { $('#res').textContent = JSON.stringify(JSON.parse(t), null, 2); }
+      catch { $('#res').textContent = t; }
+    } else {
+      $('#res').textContent = JSON.stringify(got, null, 2);
+    }
+    if (got.result && got.result.isError) $('#hint').textContent =
+      'The server reported an error result — that is a tool answer, not a transport failure.';
+  } catch (e) {
+    $('#res').textContent = String(e);
+    $('#hint').textContent = 'Is the launcher still running? It serves this page and /mcp together.';
+  }
+}
+
+(async function boot() {
+  renderTools(); renderArgs();
+  try {
+    const { got } = await rpc('tools/list');
+    const n = got.result.tools.length;
+    $('#conn').innerHTML =
+      `<span class="chip ok"><span class="dot"></span>${n} tools, live over /mcp</span>`;
+    const { got: st } = await rpc('tools/call', { name: 'kb_stale', arguments: {} });
+    const d = JSON.parse(st.result.content[0].text);
+    const repos = Object.entries(d.indexed_at || {})
+      .map(([k, v]) => `${k}@${v}`).join(' · ');
+    $('#prov').textContent =
+      `${d.doc_count} docs · ${repos} · index_stale: ${d.index_stale}`;
+  } catch (e) {
+    $('#conn').innerHTML = `<span class="chip bad"><span class="dot"></span>not reachable</span>`;
+  }
+})();
+</script>
+</html>

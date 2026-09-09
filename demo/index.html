@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>librarian — live index over agentic-microscope@fbedef0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: light;
+    --plane:      #f9f9f7;
+    --surface:    #fcfcfb;
+    --ink:        #0b0b0b;
+    --ink-2:      #52514e;
+    --muted:      #898781;
+    --grid:       #e1e0d9;
+    --axis:       #c3c2b7;
+    --ring:       rgba(11, 11, 11, 0.10);
+
+    --seq-500:    #256abf;
+    --seq-450:    #2a78d6;
+    --seq-250:    #86b6ef;
+
+    --good:       #0ca30c;
+    --warning:    #fab219;
+    --critical:   #d03b3b;
+
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 28px 24px 56px;
+    background: var(--plane);
+    color: var(--ink);
+    font: 15px/1.55 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  /* ---- header ------------------------------------------------------- */
+
+  header { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;
+           padding-bottom: 16px; border-bottom: 1px solid var(--grid); }
+  h1 { margin: 0; font-size: 27px; letter-spacing: -0.015em; font-weight: 650; }
+  h1 span { color: var(--muted); font-weight: 400; }
+  .tagline { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; max-width: 52ch; }
+  .provenance { margin-left: auto; text-align: right; font-size: 12.5px; color: var(--ink-2); }
+  .provenance code { font: 12.5px/1.5 var(--mono); color: var(--ink); }
+
+  /* ---- shared pieces ------------------------------------------------ */
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 9px; border-radius: 999px;
+    border: 1px solid var(--ring); background: var(--surface);
+    font: 12px/1.7 var(--sans); color: var(--ink-2); white-space: nowrap;
+  }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .chip.is-good    .dot { background: var(--good); }
+  .chip.is-warning .dot { background: var(--warning); }
+  .chip.is-critical{ border-color: rgba(208,59,59,.35); color: #8f2222; }
+  .chip.is-critical .dot { background: var(--critical); }
+
+  h2 { margin: 36px 0 4px; font-size: 15.5px; font-weight: 650; letter-spacing: -0.005em; }
+  h2 + .lede { margin: 0 0 14px; color: var(--ink-2); font-size: 13.5px; max-width: 84ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; }
+
+  /* ---- stat tiles --------------------------------------------------- */
+
+  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 20px; }
+  .tile { padding: 13px 14px 14px; }
+  .tile .k { font-size: 12px; color: var(--ink-2); }
+  .tile .v { margin-top: 3px; font-size: 26px; font-weight: 620; letter-spacing: -0.02em; }
+  .tile .v small { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+  .tile .sub { margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+
+  /* ---- meters ------------------------------------------------------- */
+
+  .meter { display: block; width: 118px; height: 8px; border-radius: 4px;
+           background: var(--grid); overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 4px; background: var(--seq-450); }
+  .meter i.zero { background: transparent; }
+  .frac { font: 12.5px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+  /* ---- tables ------------------------------------------------------- */
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+  thead th { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+             letter-spacing: 0.045em; border-bottom-color: var(--axis); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.path { font: 12.5px/1.5 var(--mono); color: var(--ink); }
+  td.num  { font-variant-numeric: tabular-nums; }
+
+  /* ---- the two-lens comparison -------------------------------------- */
+
+  .lenses { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .lens { padding: 14px 15px 6px; }
+  .lens h3 { margin: 0; font: 600 13px/1.4 var(--mono); }
+  .lens .owns { margin: 3px 0 12px; font-size: 12px; color: var(--muted); }
+  .hit { padding: 10px 0; border-top: 1px solid var(--grid); }
+  .hit:first-of-type { border-top: 0; padding-top: 2px; }
+  .hit .rank { font: 600 12px/1 var(--mono); color: var(--muted); }
+  .hit .score { font: 12px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--seq-500); }
+  .hit .uid { font: 12px/1.5 var(--mono); word-break: break-all; margin-top: 4px; }
+  .hit .title { font-size: 13px; color: var(--ink-2); margin-top: 3px; }
+  .hit .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+  .disjoint { margin: 12px 0 0; padding: 10px 13px; font-size: 13px;
+              border-left: 3px solid var(--good); background: var(--surface);
+              border-radius: 0 8px 8px 0; }
+
+  /* ---- closure ------------------------------------------------------ */
+
+  .leaf { display: grid; grid-template-columns: 150px 108px 1fr; gap: 12px;
+          padding: 10px 14px; border-bottom: 1px solid var(--grid); align-items: start; }
+  .leaf:last-child { border-bottom: 0; }
+  .leaf .name { font: 12.5px/1.5 var(--mono); }
+  .leaf .name em { color: var(--muted); font-style: normal; font-size: 11.5px; }
+  .leaf .src { font: 12px/1.6 var(--mono); color: var(--ink-2); word-break: break-all; }
+  .leaf .src .arrow { color: var(--muted); }
+  .leaf .supplied { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .alias { font-size: 11.5px; color: var(--muted); font-family: var(--sans); }
+
+  ul.findings { margin: 0; padding: 4px 0; list-style: none; }
+  ul.findings li { padding: 10px 14px; border-bottom: 1px solid var(--grid);
+                   display: grid; grid-template-columns: 210px 1fr; gap: 12px; align-items: start; }
+  ul.findings li:last-child { border-bottom: 0; }
+  ul.findings .what { font: 12.5px/1.5 var(--mono); }
+  ul.findings .why { font-size: 13px; color: var(--ink-2); }
+
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--grid);
+           font-size: 12.5px; color: var(--ink-2); }
+  footer pre { font: 12px/1.7 var(--mono); background: var(--surface); color: var(--ink);
+               border: 1px solid var(--ring); border-radius: 8px; padding: 12px 14px;
+               overflow-x: auto; margin: 10px 0 14px; }
+  footer b { color: var(--ink); }
+
+  @media (max-width: 900px) {
+    .tiles  { grid-template-columns: repeat(2, 1fr); }
+    .lenses { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+
+<nav style="display:flex;gap:14px;align-items:center;padding:0 0 14px;margin-bottom:16px;
+            border-bottom:1px solid var(--grid);font-size:12.5px">
+  <a href="search.html" style="color:var(--ink-2);text-decoration:none;padding:3px 8px;
+     border-radius:6px">ask</a>
+  <a href="live.html" style="color:var(--ink-2);text-decoration:none;padding:3px 8px;
+     border-radius:6px">MCP console</a>
+  <a href="index.html" aria-current="page" style="color:var(--ink);text-decoration:none;
+     padding:3px 8px;border-radius:6px;background:var(--surface);border:1px solid var(--ring);
+     font-weight:600">summary</a>
+</nav>
+
+<header>
+  <div>
+    <h1>librarian <span>— one store, retrieval profiled per caller</span></h1>
+    <p class="tagline">Read-only over <code>agentic-microscope</code>. Every hit carries
+      <code>repo@sha:path#locator</code>; nothing here originates a number.</p>
+  </div>
+  <div class="provenance">
+    <div><span class="chip is-good"><span class="dot"></span>index_stale: false</span></div>
+    <div style="margin-top:6px">indexed <code>ms@fbedef0</code> · <code>bd@ad1267b</code></div>
+    <div style="margin-top:2px; color:var(--muted)">built by
+      <code>librarian reindex --repo ms --repo bd</code></div>
+  </div>
+</header>
+
+<section class="tiles">
+  <div class="card tile">
+    <div class="k">Documents, one index</div>
+    <div class="v">1341</div>
+    <div class="sub"><strong>554</strong> ms + <strong>787</strong> bd · 7 adapters</div>
+  </div>
+  <div class="card tile">
+    <div class="k">Cross-references</div>
+    <div class="v">493</div>
+    <div class="sub">395 indexed · 73 in-repo · 25 broken</div>
+  </div>
+  <div class="card tile">
+    <div class="k">Registry coverage rows</div>
+    <div class="v">48</div>
+    <div class="sub">ms only — bd registers no fields</div>
+  </div>
+  <div class="card tile">
+    <div class="k">Hits that may advance a verdict</div>
+    <div class="v">8 <small>of 1341</small></div>
+    <div class="sub"><code>evidence: measured</code>, all in ms</div>
+  </div>
+  <div class="card tile">
+    <div class="k">Findings</div>
+    <div class="v">30</div>
+    <div class="sub">2 errors, both bd's <code>INDEX.md</code></div>
+  </div>
+</section>
+
+<h2>One question, two callers — the same corpus answers differently</h2>
+<p class="lede">Asked <em>“what limits how long I can image this dye”</em>. The profile is a versioned
+  file applied server-side, not something the model composes; the two lenses own different evidence, so
+  they are <strong>meant</strong> to disagree. This is the acceptance criterion in BUILD.md §4-B.</p>
+
+<div class="lenses">
+  <div class="card lens">
+    <h3>ms:lens-5-photo-perturbation</h3>
+    <p class="owns">owns <code>bleach_photons</code>, <code>lifetime_ns</code>, G10 · G20–G22</p>
+
+    <div class="hit">
+      <span class="rank">1</span> <span class="score">20.127</span>
+      <div class="uid">ms:kb/literature/README.md#what-belongs-here-and-what-does-not</div>
+      <div class="title">kb/literature/ — What belongs here, and what does not</div>
+      <div class="badges">
+        <span class="chip">literature_form</span>
+        <span class="chip is-warning"><span class="dot"></span>evidence: assumed · tier 3</span>
+        <span class="chip">advances: false</span>
+        <span class="chip is-good"><span class="dot"></span>falsifier</span>
+      </div>
+    </div>
+
+    <div class="hit">
+      <span class="rank">2</span> <span class="score">14.255</span>
+      <div class="uid">ms:kb/literature/README.md#the-rule-that-defines-this-tier</div>
+      <div class="title">kb/literature/ — The rule that defines this tier</div>
+      <div class="badges">
+        <span class="chip">literature_form</span>
+        <span class="chip is-warning"><span class="dot"></span>evidence: assumed · tier 3</span>
+        <span class="chip">advances: false</span>
+        <span class="chip is-good"><span class="dot"></span>falsifier</span>
+      </div>
+    </div>
+
+    <div class="hit">
+      <span class="rank">3</span> <span class="score">11.812</span>
+      <div class="uid">ms:data/filters.yaml#filters.FF01-680/42</div>
+      <div class="title">filters &gt; FF01-680/42</div>
+      <div class="badges">
+        <span class="chip">registry</span>
+        <span class="chip is-warning"><span class="dot"></span>confirmed_default · tier 2</span>
+        <span class="chip">advances: false</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card lens">
+    <h3>ms:lens-4-sample-optics</h3>
+    <p class="owns">owns G15–G19 and the captured priors on immersion media, coverslip, medium index</p>
+
+    <div class="hit">
+      <span class="rank">1</span> <span class="score">26.808</span>
+      <div class="uid">ms:kb/expertise/imaging-priority-hierarchy.md#verdict</div>
+      <div class="title">When a proposal cannot satisfy spatial resolution, image quality, time
+        resolution and light intensity at once</div>
+      <div class="badges">
+        <span class="chip">expertise</span>
+        <span class="chip">evidence: —</span>
+        <span class="chip">advances: false</span>
+        <span class="chip is-good"><span class="dot"></span>falsifier</span>
+      </div>
+    </div>
+
+    <div class="hit">
+      <span class="rank">2</span> <span class="score">24.003</span>
+      <div class="uid">ms:kb/expertise/oil-objective-trapping-in-water.md#what-it-costs-and-why-a-clipped-verdict-still-cannot-advance</div>
+      <div class="title">Can the oil-immersion objectives trap particles in an aqueous sample?</div>
+      <div class="badges">
+        <span class="chip">expertise</span>
+        <span class="chip is-good"><span class="dot"></span>evidence: measured · tier 1</span>
+        <span class="chip is-good"><span class="dot"></span>advances: true</span>
+        <span class="chip is-good"><span class="dot"></span>falsifier</span>
+      </div>
+    </div>
+
+    <div class="hit">
+      <span class="rank">3</span> <span class="score">23.575</span>
+      <div class="uid">ms:kb/expertise/sample-medium-refractive-index.md#verdict</div>
+      <div class="title">What refractive index should be assumed when the experiment does not state one</div>
+      <div class="badges">
+        <span class="chip">expertise</span>
+        <span class="chip is-warning"><span class="dot"></span>confirmed_default</span>
+        <span class="chip">advances: false</span>
+        <span class="chip is-good"><span class="dot"></span>falsifier</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="disjoint"><strong>The two result sets are disjoint</strong>, and the leading hits land in
+  different corpora — <code>kb/literature/</code> against <code>kb/expertise/</code>. Only one hit on
+  either side may advance a verdict, and it says so on its face.</p>
+
+<h2>What a calculation needs, and which of it exists</h2>
+<p class="lede"><code>kb_inputs("radial_stiffness_n_per_m")</code> — the closure over a function
+  signature, walked from the code rather than a hand-written list. Two of seven leaves resolve; the
+  status is the honest one.</p>
+
+<div class="card">
+  <div style="padding:13px 14px; border-bottom:1px solid var(--grid); display:flex; gap:12px; align-items:center; flex-wrap:wrap">
+    <span class="chip is-critical"><span class="dot"></span>status: unresolved</span>
+    <span style="font:12.5px/1.5 var(--mono)">ms:trapping/goa.py#radial_stiffness_n_per_m</span>
+  </div>
+
+  <div class="leaf">
+    <div class="name">power_w</div>
+    <div><span class="chip is-critical"><span class="dot"></span>unresolved</span></div>
+    <div class="src"><span class="arrow">?</span> ms:kb/decisions/2026-08-27-tweezers-first-light-measured-limits.md#6-laser-power-is-not-reachable-from-software-at-all
+      <div class="alias">…and 2 more ranked candidates. The instrument cannot supply this one.</div></div>
+  </div>
+
+  <div class="leaf">
+    <div class="name">bead.radius_m</div>
+    <div><span class="chip is-good"><span class="dot"></span>ok</span></div>
+    <div class="src">
+      <div class="supplied">
+        <span class="meter" title="3 of 8 entries filled"><i style="width:37.5%"></i></span>
+        <span class="frac">3 / 8</span>
+      </div>
+      <span class="arrow">&lt;-</span> data/particles.yaml &gt; diameter_um
+      <div class="alias">via alias — divide by 2 and convert µm → m. A radius is not a diameter.</div>
+    </div>
+  </div>
+
+  <div class="leaf">
+    <div class="name">bead.n</div>
+    <div><span class="chip is-critical"><span class="dot"></span>unresolved</span></div>
+    <div class="src"><span class="arrow">?</span> ms:data/particles.yaml#materials.polystyrene
+      <div class="alias">One character cannot be a search term — the class that declares it can.</div></div>
+  </div>
+
+  <div class="leaf">
+    <div class="name">medium.n</div>
+    <div><span class="chip is-critical"><span class="dot"></span>unresolved</span></div>
+    <div class="src"><span class="arrow">?</span> ms:kb/expertise/sample-medium-refractive-index.md#verdict
+      <div class="alias">A captured prior, not a registry field — so it arrives as a citation.</div></div>
+  </div>
+
+  <div class="leaf">
+    <div class="name">medium.viscosity_pa_s <em>(optional)</em></div>
+    <div><span class="chip is-warning"><span class="dot"></span>unresolved</span></div>
+    <div class="src"><span class="arrow">?</span> ms:data/particles.yaml#materials.water
+      <div class="alias">Registered nowhere. An alias that pointed at the medium’s <em>name</em> was
+        removed for overstating its own resolution.</div></div>
+  </div>
+
+  <div class="leaf">
+    <div class="name">beam.na</div>
+    <div><span class="chip is-good"><span class="dot"></span>ok</span></div>
+    <div class="src">
+      <div class="supplied">
+        <span class="meter" title="6 of 6 entries filled"><i style="width:100%"></i></span>
+        <span class="frac">6 / 6</span>
+      </div>
+      <span class="arrow">&lt;-</span> data/objectives.yaml &gt; na
+      <div class="alias">The objective list arrives in full.</div>
+    </div>
+  </div>
+
+  <div class="leaf">
+    <div class="name">beam.wavelength_m</div>
+    <div><span class="chip is-critical"><span class="dot"></span>unresolved</span></div>
+    <div class="src"><span class="arrow">?</span> ms:data/filters.yaml#filters.OT-Dichroic-750LP</div>
+  </div>
+</div>
+
+<h2>Which gate is blocked, and for want of which input</h2>
+<p class="lede">Crossed from three places the microscope keeps separately: empty registry fields ×
+  the field each gate reads × the blocker list in its roadmap. <code>grep</code> cannot produce this.</p>
+
+<div class="card">
+  <table>
+    <thead><tr>
+      <th>Registry</th><th>Field</th><th>Gate</th><th style="width:190px">Coverage</th><th>State</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td class="path">data/fluorophores.yaml</td>
+        <td class="path">bleach_photons</td>
+        <td class="path">G10</td>
+        <td><div class="supplied"><span class="meter" title="0 of 17 dyes"><i class="zero"></i></span>
+            <span class="frac">0 / 17</span></div></td>
+        <td><span class="chip is-critical"><span class="dot"></span>BLOCKED — nothing supplies it</span></td>
+      </tr>
+      <tr>
+        <td class="path">data/light_sources.yaml</td>
+        <td class="path">power_at_sample_mw</td>
+        <td class="path">—</td>
+        <td><div class="supplied"><span class="meter" title="0 of 6 sources"><i class="zero"></i></span>
+            <span class="frac">0 / 6</span></div></td>
+        <td><span class="chip is-critical"><span class="dot"></span>BLOCKED — nothing supplies it</span></td>
+      </tr>
+      <tr>
+        <td class="path">data/fluorophores.yaml</td>
+        <td class="path">lifetime_ns</td>
+        <td class="path">G20</td>
+        <td><div class="supplied"><span class="meter" title="11 of 17 dyes"><i style="width:64.7%"></i></span>
+            <span class="frac">11 / 17</span></div></td>
+        <td><span class="chip is-warning"><span class="dot"></span>partial</span></td>
+      </tr>
+      <tr>
+        <td class="path">data/particles.yaml</td>
+        <td class="path">source</td>
+        <td class="path">—</td>
+        <td><div class="supplied"><span class="meter" title="4 of 8 entries"><i style="width:50%"></i></span>
+            <span class="frac">4 / 8</span></div></td>
+        <td><span class="chip is-warning"><span class="dot"></span>partial</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>Custody — what the index says about its own sources</h2>
+<p class="lede">Thirty findings across both repositories. Four are worth more than their severity: two
+  are the simulator's own <code>INDEX.md</code> defects, rediscovered by tool rather than by
+  reading; one is a finding this tool raised that the source repository then fixed; one is a
+  source repository moving underneath the index.</p>
+
+<div class="card" style="margin-bottom:12px">
+  <ul class="findings">
+    <li>
+      <div class="what"><span class="chip is-critical"><span class="dot"></span>error</span>
+        declared_count_mismatch</div>
+      <div class="why"><code>bd:knowledge/source/papers/INDEX.md</code> <strong>states 40 entries
+        where 42 sibling files exist.</strong> The file is headed <em>do not edit by hand</em>.
+        This was v1's exit condition — the defect a human found by reading, found again by tool.</div>
+    </li>
+    <li>
+      <div class="what"><span class="chip is-critical"><span class="dot"></span>error</span>
+        generator_missing</div>
+      <div class="why">That same header names <code>docs/tools/wiki_index.py</code>, which is
+        <strong>not in the repository</strong> — so the file cannot be regenerated and says not to
+        edit it. A generated artefact outliving its generator is the failure this project exists to
+        catch, and it is resolved by looking rather than by importing.</div>
+    </li>
+  </ul>
+</div>
+
+<div class="card">
+  <ul class="findings">
+    <li>
+      <div class="what"><span class="chip is-warning"><span class="dot"></span>×7</span>
+        broken_cross_reference</div>
+      <div class="why">Seven wikilinks point at entries nobody wrote. A reference to a file that does
+        not exist is the decay mode this repository was built to catch.</div>
+    </li>
+    <li>
+      <div class="what"><span class="chip is-warning"><span class="dot"></span>×3</span>
+        gate_not_traceable_to_code</div>
+      <div class="why"><code>ms:G2</code> · <code>ms:G3</code> · <code>ms:G4</code> are
+        <strong>implemented</strong> — by <code>optics.gate.evaluate</code>, as the decision-engine doc
+        says — and named in no Python file, so no code says which gate is which. This check previously
+        reported them as <em>unimplemented</em>, at error severity, and that claim was false: reporting
+        a traceability gap as a missing implementation cost the exit code its meaning.</div>
+    </li>
+    <li>
+      <div class="what"><span class="chip is-good"><span class="dot"></span>0</span>
+        falsifier_missing</div>
+      <div class="why">Was one: the entry research-topic holds up as <em>“a challenge that was
+        upheld”</em> carried no falsifier, so the model case was the one entry that could not itself be
+        challenged. <strong>The microscope added the section</strong> — so this reads zero, and the
+        assertion now pins zero rather than the defect. The loop closed.</div>
+    </li>
+    <li>
+      <div class="what"><span class="chip is-good"><span class="dot"></span>0</span>
+        gate_declared_not_implemented</div>
+      <div class="why">No gate carries a threshold in the docs with nothing behind it.</div>
+    </li>
+    <li>
+      <div class="what"><span class="chip is-warning"><span class="dot"></span>×2</span>
+        file_produced_nothing</div>
+      <div class="why"><code>kb/sessions/2026-09-07.md</code> and <code>kb/sessions/README.md</code>
+        are candidate files that yielded no document — the microscope grew a folder kind the adapter
+        does not cover yet. <strong>One integration test fails on exactly this</strong>, which is the
+        signal that job exists for: red means a source repository moved, which is information rather
+        than a defect here.</div>
+    </li>
+  </ul>
+</div>
+
+<footer>
+  <p><b>Every figure on this page came out of the commands below</b>, run against a live index built
+    from a shallow clone. Nothing is illustrative and nothing is rounded.</p>
+<pre>uv venv .venv --python 3.12
+uv pip install -e ".[dev]"
+git clone --depth 1 …/agentic-microscope.git        cache/ms   # fbedef0
+git clone --depth 1 …/Brownian-Dynamics-Agent.git   cache/bd   # ad1267b
+
+python -m librarian.cli scan     --repo bd      # 787 docs from 234 files, 0 findings
+python -m librarian.cli reindex  --repo ms --repo bd
+                                                # ms 554 + bd 787 = 1341 docs, 30 findings
+python -m librarian.cli search   "물 점도 viscosity water" --profile neutral --limit 5
+python -m librarian.cli inputs   radial_stiffness_n_per_m
+python -m librarian.cli gaps
+python -m pytest -q                             # 100 passed, 1 failed</pre>
+  <p><b>The mixed-script query is not a demo trick.</b> <code>물 점도</code> is two characters, which
+    forms no FTS5 token, so it goes to <code>GLOB</code> while <code>viscosity water</code> goes to
+    <code>MATCH</code> — the split BUILD.md §3 measured. It returns the simulator's own lesson that
+    water viscosity moves <strong>2.06 %/K</strong> and that <code>T = 300 K</code> was inherited
+    rather than measured.</p>
+  <p>The single failing test is the <code>kb/sessions/</code> discovery above. The counts recorded in
+    <code>README.md</code> were measured against <code>ms@196cdf1</code>; the microscope has since moved
+    to <code>fbedef0</code>, so this page and that table do not agree — which is what
+    <code>index_stale</code> is for.</p>
+</footer>
+
+</div>
+</html>
