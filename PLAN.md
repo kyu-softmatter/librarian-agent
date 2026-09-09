@@ -240,16 +240,24 @@ Running the four MS adapters and the drift report over `agentic-microscope`
 @ `196cdf1` produced **544 documents from 59 files**, with every candidate file
 accounted for, and four findings.
 
-> **544 is the first scan's figure, and it is not the only one in this
-> repository.** §1.1 and the README both give **513** indexed rows for the same
-> 59 files at the same commit, and `librarian.index.build` filters nothing — it
-> inserts every document the scan produced — so the two cannot both be current.
-> `python -m librarian.cli reindex --repo ms` settles it in one command, and
-> until it has been run neither number should be quoted. §5.1's *495 of 544* and
-> `profiles/README.md`'s *544 real documents* are derived from the same scan and
-> move with it. **This is `index_stale` applied to the plan itself** (§8, row 2):
-> a figure whose generator has moved on is exactly the failure this repository
-> was built to catch.
+> **544 was the first scan's figure, and it was not the only one.** §1.1 and the
+> README both gave **513** indexed rows for the same 59 files at the same
+> commit, and `librarian.index.build` filters nothing — it inserts every
+> document the scan produced — so at most one was ever right.
+>
+> **Re-measured 2026-09-09, and the answer is that the question expired.** The
+> microscope has moved to `fbedef0`, where the four adapters produce **554
+> documents from 68 files** — it grew a `kb/sessions/` folder, three decisions,
+> two expertise entries and a calibration. So neither historical figure
+> describes the corpus, the disagreement between them is now unresolvable
+> without checking out `196cdf1`, and nothing downstream depends on which was
+> right. §5.1's *495 of 544* and `profiles/README.md`'s *544 real documents* are
+> derived from that same expired scan and are read as historical.
+>
+> **This is `index_stale` applied to the plan itself** (§8, row 2). The lesson is
+> not that a number was wrong; it is that a count written beside a tool that can
+> compute it decays silently, so `adapters/README.md` now prints the command
+> above the table.
 
 | Finding | Detail |
 |---|---|

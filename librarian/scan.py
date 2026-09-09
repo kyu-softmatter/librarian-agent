@@ -26,7 +26,29 @@ CANDIDATES = {
     "ms_data": lambda r: sorted((r / "data").glob("*.yaml")),
     "ms_docs": lambda r: sorted((r / "docs").rglob("*.md")),
     "ms_agents": lambda r: sorted((r / ".claude" / "agents").glob("*.md")),
+    # BD's wiki holds one YAML ledger beside the markdown -- `benchmarks.yaml`
+    # is what pytest reads, and it lists more benchmarks than the folder holds
+    # pages, so it is a candidate rather than an aside.
+    "bd_wiki": lambda r: [p for p in sorted((r / "knowledge" / "wiki").rglob("*"))
+                          if p.is_file()
+                          and (p.suffix == ".md" or p.name == "benchmarks.yaml")],
+    "bd_source": lambda r: sorted((r / "knowledge" / "source").rglob("*.md")),
+    "bd_entries": lambda r: sorted((r / "knowledge" / "entries").glob("*.json")),
 }
+
+
+def sources_for(root: Path) -> list[str]:
+    """The adapters that apply to this checkout, selected by directory name.
+
+    `librarian.cli` puts every clone at `cache/<repo>` and each source name is
+    prefixed with the repo it parses, so the directory name is the selector.
+
+    The alternative -- running every adapter against every checkout -- makes
+    `source_empty` fire at error severity for the sources that do not apply,
+    which inverts that check: it exists to catch a store that should have
+    answered and did not.
+    """
+    return [n for n in ADAPTERS if n.startswith(f"{root.name}_")]
 
 
 def commit_sha(root: Path) -> str:
@@ -63,7 +85,13 @@ def scan(root: Path, sources: list[str] | None = None) -> ScanReport:
     rep.repo_files = {p.relative_to(root).as_posix()
                       for p in root.rglob("*")
                       if p.is_file() and ".git" not in p.parts}
-    names = sources or list(ADAPTERS)
+    names = sources or sources_for(root)
+    if not names:
+        rep.findings.append(Finding(
+            "no_adapter", root.name,
+            f"no source is registered for a checkout named {root.name!r}; "
+            "an unparsed repository reads as an empty one", "error"))
+        return rep
 
     for name in names:
         adapter = ADAPTERS[name]

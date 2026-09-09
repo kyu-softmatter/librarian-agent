@@ -9,7 +9,8 @@ import pytest
 
 from librarian.drift import drift
 from librarian.gaps import gaps, gate_functions
-from librarian.scan import CANDIDATES, scan
+from adapters import ADAPTERS
+from librarian.scan import CANDIDATES, scan, sources_for
 
 pytestmark = pytest.mark.integration
 
@@ -34,10 +35,16 @@ def test_candidate_enumeration_is_independent_of_the_adapters(ms):
 
     An adapter asserting its own count would pass while silently dropping a
     folder -- which is how BD's `tools/kb.py` reported 0 for 126 entries.
+
+    **Asserted as a correspondence, not as a list.** Naming the four MS sources
+    here meant that adding BD's three failed this test rather than the thing it
+    protects, and a test that has to be edited every time a source is added
+    stops being read. What matters is that no adapter runs without an
+    independent enumeration to check it against.
     """
-    assert set(CANDIDATES) == {"ms_kb", "ms_data", "ms_docs", "ms_agents"}
-    for name, enumerate_ in CANDIDATES.items():
-        assert enumerate_(ms), f"{name} enumerated no candidate files"
+    assert set(CANDIDATES) == set(ADAPTERS)
+    for name in sources_for(ms):
+        assert CANDIDATES[name](ms), f"{name} enumerated no candidate files"
 
 
 def test_only_measurements_advance(ms):

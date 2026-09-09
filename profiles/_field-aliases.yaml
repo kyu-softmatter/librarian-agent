@@ -10,8 +10,16 @@
 # leaf with no alias and no name match is reported as `unresolved` with search
 # candidates, which is a weaker answer and an honest one.
 
+# **`repo` is declared, not assumed.** Verifying an alias against a repository
+# that was never supposed to carry it asks the wrong question and answers it at
+# error severity: `radius_m -> data/particles.yaml` is a fact about the
+# microscope, and BD has no `data/` at all, so a build that indexed both
+# reported the alias as broken. An alias with no `repo` is a finding rather
+# than a default, because a default is what made the first version wrong.
+
 aliases:
   radius_m:
+    repo: ms
     registry: data/particles.yaml
     field: diameter_um
     note: "data/particles.yaml > diameter_um -- divide by 2 and convert um -> m.

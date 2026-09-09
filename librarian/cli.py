@@ -106,17 +106,29 @@ def _broken_link_findings(links) -> list:
     ]
 
 
-def _alias_findings(root: Path) -> list:
-    """A recorded field alias whose target has disappeared.
+def _alias_findings(root: Path, repo: str) -> list:
+    """A recorded field alias whose target has disappeared, checked against
+    the repository the alias itself names.
 
     Aliases bridge the places a name cannot -- `radius_m` against the registry's
     `diameter_um` -- and a hand-maintained mapping is the thing that goes stale
     first. Verified on every build, so a stale one is a finding rather than a
     leaf that quietly stops resolving.
+
+    **The repo filter is not a convenience.** Verified against every indexed
+    repository, an alias that names MS's `data/particles.yaml` was reported
+    broken the moment BD -- which has no `data/` -- entered the same build. The
+    check was answering a question nobody asked, at error severity.
     """
+    from librarian.doc import Finding
     from librarian.inputs import load_aliases, registry_keys, verify_aliases
-    return verify_aliases(load_aliases(PROFILES / "_field-aliases.yaml"),
-                          registry_keys(root))
+
+    aliases = load_aliases(PROFILES / "_field-aliases.yaml")
+    out = [Finding("alias_repo_undeclared", leaf,
+                   "the alias names no repo, so nothing can verify it", "error")
+           for leaf, a in sorted(aliases.items()) if not a.get("repo")]
+    mine = {leaf: a for leaf, a in aliases.items() if a.get("repo") == repo}
+    return out + verify_aliases(mine, registry_keys(root))
 
 
 def cmd_reindex(args) -> int:
@@ -135,7 +147,7 @@ def cmd_reindex(args) -> int:
         ls = extract(rep.docs, rep.repo_files, rep.source_text)
         gs = compute_gaps(_root(repo))
         fs = (drift(_root(repo), repo) + _broken_link_findings(ls)
-              + _alias_findings(_root(repo)))
+              + _alias_findings(_root(repo), repo))
         docs += rep.docs
         links += ls
         gap_rows += gs
