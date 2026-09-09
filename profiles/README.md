@@ -1,4 +1,4 @@
-# `profiles/` — one query profile per calling agent
+# `profiles/` — one query profile per caller
 
 A `caller_profile` is a **versioned config file, not a query the LLM composes each
 time.** The design comes from BD `I-053`: perspective separation is produced not
@@ -74,6 +74,32 @@ No overlap in the top three. The gate and field lists are read off the
 repository — `photo/checks.py` and `sample/checks.py` docstrings for the gates,
 `setup.<field>` occurrences for the fields — so a profile does not drift from the
 code it is written against without that showing up.
+
+## People get profiles too — by role, never by person
+
+Planned for v2 → [../PLAN.md](../PLAN.md) §3.5.
+
+A person reaching the NAS server asks in their own words and has no lens. What
+they get instead is a `human:*` profile — the same file form, the same weights,
+applied the same way server-side — plus a `purpose` argument on the query,
+because the same person asks for different reasons on different days.
+
+**Keyed by role and purpose, never by person.** Two reasons, and neither is
+tidiness:
+
+- Profiles should multiply with **kinds of question**, not with people. A file
+  per person goes stale the day that person changes what they work on, and
+  nothing notices — the stale-table problem this repository exists to catch.
+- A `person:<name>` profile records **who was looking for what** in a public
+  repository. That is the disclosure `publish-gate` exists to stop
+  ([../PLAN.md](../PLAN.md) §6.1), except committed rather than logged.
+
+**And a declared role is a claim, not a fact.** Among three agents on one machine
+a wrong `caller_profile` is a bug in a config file. On a NAS several people can
+reach, it asserts *who is asking*, nothing checks it, and what comes back is
+plausible, correctly cited, and **not what that person needed** — which the
+answer does not show. Whether the service verifies the claim is open
+([../PLAN.md](../PLAN.md) §9, decision (l)).
 
 ## The rule that keeps ranking honest
 

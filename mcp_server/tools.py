@@ -1,4 +1,4 @@
-"""The six read tools, over the index and nothing else.
+"""The seven read tools, over the index and nothing else.
 
 Every tool opens the index per call rather than holding a handle. A reindex
 deletes and rewrites the file, so a long-lived connection would answer from a

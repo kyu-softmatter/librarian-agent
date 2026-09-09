@@ -47,39 +47,64 @@ job to a person; the flag is what keeps a forgotten refresh from being silent.
 
 ---
 
-## Relation to the other three
+## The four, and what flows on each edge
 
 ```text
-                    +-------------------------------------+
-                    |            research-topic           |
-                    |  topic selection (J2)               |
-                    |  the form of a pass condition (J3)  |
-                    +--+-------------------------------+--+
-                       |                               ^
-        topics, in falsifiable form                    |   results, dead ends,
-        rigor-axis definitions                         |   questions
-                       v                               |
-     +-----------------+--------+       +--------------+-----------+
-     | Brownian-Dynamics-Agent  |       |    agentic-microscope    |
-     | simulation               | <---> |    experiment            |
-     | A1-A10 . deterministic   |       |    8 lenses . G1-G32     |
-     | gate . dimensions first  |       |    BLOCKED by default    |
-     +------------+-------------+       +-------------+------------+
-                  |                                   |
-                  |        read-only ingest           |
-                  +---------------+-------------------+
-                                  v
-                    +-------------------------------+
-                    |       librarian  (here)       |
-                    |  one store . one index        |
-                    |  retrieval per caller         |
-                    |  retirement . staleness       |
-                    +---------------+---------------+
-                                    |
-                     generated read-only copy back,
-                     so a lens that reads with Grep
-                     still works offline
+                     +-------------------------------------+
+                     |            research-topic           |
+   +--------2------->|  topic selection (J2)               |
+   |                 |  the form of a pass condition (J3)  |
+   |                 +--+-------------------------------+--+
+   |                    | 1                           1 |
+   |                    v                               |
+   |  +-----------------+--------+       +--------------+-----------+
+   |  | Brownian-Dynamics-Agent  |       |    agentic-microscope    |
+   |  | simulation               |<--1-->|    experiment            |
+   |  | 9 agents . A1-A10        |       |    8 lenses . G1-G32     |
+   |  | dimensions first         |       |    BLOCKED by default    |
+   |  +--------+---------+-------+       +-------+---------+--------+
+   |         3 |       4 ^                     3 |       4 ^
+   |           v         |                       v         |
+   |  +--------+---------+-----------------------+---------+--------+
+   |  |                     librarian   (here)                      |
+   |  |      a server over a store, not a conversational agent      |
+   |  |                                                             |
+   |  |   kb/        the one canonical store                        |
+   |  |   index/     FTS5 . every hit carries repo@sha:path#locator |
+   |  |   map/       04-agents/ . ms . bd . rt . lib -- all four    |
+   |  |   profiles/  one per caller, versioned, applied server-side |
+   +--+   store/     challenge . digest . inbox                     |
+      +--------+---------------------------------------+------------+
+             5 |                                     6 |
+               v                                       v
+      +--------+-----------------------+   +-----------+------------+
+      | who may ask, under a profile   |   | ms/kb-export           |
+      | ms:lens-*  bd:s*  rt:V*        |   | bd/knowledge-export    |
+      | human:* -- role and purpose    |   | read with Grep,        |
+      |                                |   | offline, no MCP tool   |
+      | v1 stdio . v2 one service, NAS |   | declared               |
+      +--------------------------------+   +------------------------+
 ```
+
+**Three of the four boxes are conversational agents. The fourth is not** — it has
+no session and no context window, which is why it can hold the store at all
+→ [PLAN.md](PLAN.md) §3.3.
+
+| # | Edge | What travels | Exists |
+|---|---|---|---|
+| **1** | among the three agents | topics in falsifiable form and rigor-axis definitions outward; results, dead ends and open questions back | today |
+| **2** | librarian → research-topic | **the return path.** Results land in custody and topic selection reads them from here — which is why this repository is *inside* the loop rather than beside it | v3 |
+| **3** | agent → librarian | read-only ingest over `git fetch`. The commit sha becomes every hit's provenance, and no source repository is ever written | **ms v1** · bd v2 · rt v3 |
+| **4** | librarian → agent | a challenge, routed by its falsifier's **type** and never by the sender: a measurement to ms, a run to bd, a condition of validity to rt, and none available to a person | within ms, v1 |
+| **5** | librarian → caller | an answer — hits carrying `repo@sha:path#locator`, an evidence tier and `index_stale`, and never a number of its own | **v1** |
+| **6** | librarian → repository | `export/`, a generated read-only copy, so a lens that declares only `Read, Grep, Glob` keeps working offline | MIGRATION Step 3 |
+
+**Edge 4 is the only one that runs against the direction of ingest,** and it is
+what makes custody include retirement rather than accumulation: a falsifier is a
+work order nobody has run yet, and the librarian hands it to whoever can run it
+instead of settling it itself. Research-topic's own two edges (3 and 4) are left
+out of the picture rather than out of the design — they arrive in v3, and drawing
+them now would cost the legibility of the three that exist.
 
 | | Owns | Does not |
 |---|---|---|
@@ -94,15 +119,14 @@ themselves derived from where the microscope and the simulator independently
 converged — so they are not one repository's to change alone.
 → [PLAN.md](PLAN.md) §2
 
-**And this repository is inside the loop, not beside it.** It asks no question
-and produces no result, so it is tempting to place it outside the feedback the
-other three form. That is wrong: results and dead ends land in its custody and
-topic selection reads them from here, so it is on the **return path** — and a
-store that decides which evidence surfaces is an amplifier whether or not it
-asks anything, because **what a search ranks, it selects.** The tightest form of
-that is an agent promoting its own retrieval results to ground truth, which is
-why promotion needs human approval and reproduction under two distinct index
-states → [FEEDBACK.md](FEEDBACK.md) §5.
+**And it is inside the loop, not beside it.** It asks no question and produces no
+result, so it is tempting to place it outside the feedback the other three form.
+**Edge 2 is why that is wrong** — and a store that decides which evidence
+surfaces is an amplifier whether or not it asks anything, because **what a search
+ranks, it selects.** The tightest form of that is an agent promoting its own
+retrieval results to ground truth, which is why promotion needs human approval
+and reproduction under two distinct index states
+→ [FEEDBACK.md](FEEDBACK.md) §5.
 
 Three of those constraints shape everything here:
 
@@ -126,7 +150,7 @@ Read tools only, over the microscope repository. Measured against
 | Cross-references | **205** — 144 indexed · 54 present but unindexed · 7 broken |
 | Registry coverage rows | **48** |
 | Drift findings | **11** |
-| Tests | **69** |
+| Tests | **101**, 81 of them offline |
 
 ```bash
 pip install -e ".[dev]"
@@ -137,11 +161,12 @@ python -m librarian.cli search "what limits how long I can image this dye" \
     --profile ms:lens-5-photo-perturbation
 python -m librarian.cli gaps --missing-only
 python -m librarian.cli supplies G10
+python -m librarian.cli inputs radial_stiffness_n_per_m
 python -m librarian.cli drift --repo ms
 python -m pytest
 ```
 
-### The six tools
+### The seven read tools
 
 Registered through [`.mcp.json`](.mcp.json) as `python -m mcp_server.server`.
 All annotated read-only; nothing writes to any repository.
@@ -155,6 +180,58 @@ All annotated read-only; nothing writes to any repository.
 | `kb_supplies` | what supplies a field, or what a gate is waiting for |
 | `kb_gaps` | which gate is `BLOCKED`, for want of which input |
 | `kb_stale` | whether the index is behind, and whether what is declared still matches what exists |
+
+### It is a server, not a fourth agent
+
+Three conversational agents already run, and this is deliberately not a fourth.
+An LLM call is **stateless**, so a librarian that reasoned would reload its own
+prompt and its own description of the corpus on *every* request — and the corpus
+is precisely what has to be remembered between requests. So the store is code
+(`kb/` and `index/kb.sqlite`, no model, **zero tokens**) and the librarian is the
+tool surface over it. "Retrieval that knows who asked" follows from the same
+split: it is a **parameter** — a versioned profile applied server-side — not a
+model inferring what the caller probably meant.
+→ [PLAN.md](PLAN.md) §3.3
+
+**And "callable whenever an agent needs it" is three claims, not one.**
+
+| | The claim | What breaks it |
+|---|---|---|
+| 1 | the server is running | stdio dies with the session that spawned it. **No MCP client manages a server's lifetime** — an always-on one is systemd's or docker's job, not a caller's |
+| 2 | it was registered at startup | `.mcp.json` is read once, so the set of reachable servers is **closed** for that session |
+| 3 | then it can be called freely | each call is independent; whatever has to survive two calls is in the index, or it does not exist |
+
+**v1 is stdio, which is right for exactly as long as v1 lasts** — one
+repository, one machine, one writer, and no tool that writes. It stops being
+right at BD: the microscope runs on the lab Windows PC and the simulator on
+macOS, so a shared local disk cannot be assumed and a per-session process stops
+accumulating anything shared. **v2 is one always-on service on the lab NAS** —
+the one machine neither the Windows PC nor the macOS one depends on. How every
+caller registers it, and what happens when two of them write at once, are still
+open. → [PLAN.md](PLAN.md) §3.4
+
+**People are the second class of caller, and they arrive the same way.** A person
+asks in their own words through **their own MCP client**, so the answer is
+composed by the model they are already talking to and the librarian still returns
+nothing but quoted text with coordinates — no synthesis layer, and no model
+inside the server. What it does add is a profile namespace: `human:*` roles plus
+a `purpose` argument, keyed by **role, not by person** — profiles should multiply
+with kinds of question rather than with people, and a person-keyed one would
+record who was looking for what in a public repository. It also turns
+`caller_profile` into an identity claim that nothing yet checks: harmless among
+three trusted agents on one machine, less so on a NAS several people reach.
+→ [PLAN.md](PLAN.md) §3.5
+
+**And the four agents' own definitions are part of the store.**
+`map/04-agents/` already carries the microscope's five lenses with the gates each
+one owns, read from its `.claude/agents/`; BD's nine agents follow, then
+research-topic's two personas, and the fourth slot is **this** repository —
+generated from `profiles/` and the tool surface, because it has no `.claude/` of
+its own. That is what lets an answer say *which lens declares `G10`*, at a
+locator. It is deliberately **not** a way to guess which lens you are: the map
+supplies the correspondence and the caller makes the choice, because a guessed
+profile changes which evidence comes back and nothing in the answer shows that it
+was guessed. → [PLAN.md](PLAN.md) §3.6
 
 ### Asking for the inputs to a calculation
 
@@ -243,6 +320,9 @@ None of these was read off a sentence that says so.
 | **The literature crosswalk** — BD's 42 distillations into the microscope's empty `kb/literature/` | the sharpest gap in the system, and the mapping is already **1→N**: BD files one paper per file with a `provides:` array, the microscope files one quantity per subject, and that array is the decomposition key |
 | `envelope.sqlite` — the quantitative index of 2,343 acquisitions | the records live in `D:\data`, outside every repository → **the two things below** |
 | Turning "query both" into one query | BD calls its two unmerged knowledge schemas *"the largest piece of debt in the repository"*; indexing both is the read-side fix without merging either |
+| **One always-on server on the lab NAS**, replacing per-session stdio | the second machine is what forces it: stdio needs the index on the caller's own disk, and BD's is a macOS one → [PLAN.md](PLAN.md) §3.4 |
+| `human:*` role profiles, and a `purpose` argument | people are the second caller class, and the first whose declared role nothing checks → [PLAN.md](PLAN.md) §3.5 |
+| `map/04-agents/lib/` — the fourth agent's own definitions | it is generated from `profiles/` and the tool surface, so it settles once the role profiles above do → [PLAN.md](PLAN.md) §3.6 |
 
 ### v3 — research-topic
 

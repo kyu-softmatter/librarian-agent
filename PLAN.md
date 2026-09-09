@@ -2,8 +2,11 @@
 
 Drafted 2026-09-06 · status `draft`
 Grounded in the three live remotes, read 2026-09-06 (§1)
+§3.3–§3.6 — what the librarian is, how a caller reaches it, and who the callers
+are — added 2026-09-09
 
-A knowledge agent that the other three talk to over MCP:
+A knowledge **server** — deliberately not a fourth agent (§3.3) — that the other
+three talk to over MCP:
 [agentic-microscope](https://github.com/kyu-softmatter/agentic-microscope) (experiment) ·
 [Brownian-Dynamics-Agent](https://github.com/kyu-softmatter/Brownian-Dynamics-Agent) (simulation) ·
 [research-topic](https://github.com/kyu-softmatter/research-topic) (topic selection).
@@ -16,11 +19,14 @@ A knowledge agent that the other three talk to over MCP:
 
 ## 0. Scope
 
-Decided 2026-09-06.
+Decided 2026-09-06; the three rows citing §3.3–§3.5, 2026-09-09.
 
 | | |
 |---|---|
 | **Identity** | **The fourth axis.** Custody, retrieval and interaction for knowledge. Not `research-topic`'s J1 — that repo keeps **J2** (topic selection) and **J3** (the form of a pass condition) |
+| **Kind of thing** | **A server over a store, not a fourth conversational agent** → §3.3 |
+| **Callers** | the three agents' lenses and personas, **and people** — each under a named profile, everyone through their own MCP client → §3.5 |
+| **Where it runs** | v1 stdio, one process per session · v2 **one always-on service on the lab NAS** → §3.4 |
 | **v1** | **Librarian for the microscope agent only.** Then simulation (BD), then research (RT) |
 | **Data** | Structure first, verified second, migrated third → [BUILD.md](BUILD.md) · [MIGRATION.md](MIGRATION.md) |
 | **Visibility** | **public** — so `publish-gate` (§6.1) moves to Phase 0 |
@@ -31,7 +37,7 @@ Decided 2026-09-06.
 | | v1 (MS) | v2 (BD) | v3 (RT) |
 |---|---|---|---|
 | Adapters | `kb/` 5 kinds · `data/*.yaml` · `docs/` | `wiki` · `source` · `entries` · `runs` | `design/` |
-| Profiles | **lens 5 + lens 4** | `bd:s1`–`s8` · `lit-*` | `V1` · `V2` |
+| Profiles | **lens 5 + lens 4** | `bd:s1`–`s8` · `lit-*` · `human:*` | `V1` · `V2` |
 | Subject folders filled | `00` `01` `02` `03` `07` `08` | `05` `06` | — |
 | Acquisition index (`envelope.sqlite`) | **excluded** → §0.3 | ★ first | — |
 | Crosswalk (row 2) | **impossible — the BD side does not exist yet** | ★ first | — |
@@ -84,10 +90,13 @@ what is worth measuring next."* It is the only KB folder v1 can fill.
 | Weekly automation | Replaced by `index_stale` (§6) |
 | `05` · `06` contents | BD's domain |
 
-**Excluding `envelope.sqlite` changes what v1 is.** Repository files alone give
-roughly 100–150 documents, and at that size FTS5 is honestly overkill — `grep`
-would nearly do. So v1's value is not search volume. It is **the structure, the
-gap analysis, and the first retrieval feedback.**
+**Excluding `envelope.sqlite` changes what v1 is.** This section first estimated
+**100–150 documents** from repository files alone and concluded that FTS5 was
+honestly overkill at that size — `grep` would nearly do. **The first scan
+measured several times that** (§1.8), because normalization splits one file into
+sections and one registry into entries. So the size argument no longer holds; the
+conclusion does, for a different reason. v1's value is not search volume. It is
+**the structure, the gap analysis, and the first retrieval feedback.**
 
 **Half of the original motive moves to v2.** *Preparing for data to accumulate*
 is, in v1, preparing the **form**; indexing the acquisitions themselves comes
@@ -231,6 +240,17 @@ Running the four MS adapters and the drift report over `agentic-microscope`
 @ `196cdf1` produced **544 documents from 59 files**, with every candidate file
 accounted for, and four findings.
 
+> **544 is the first scan's figure, and it is not the only one in this
+> repository.** §1.1 and the README both give **513** indexed rows for the same
+> 59 files at the same commit, and `librarian.index.build` filters nothing — it
+> inserts every document the scan produced — so the two cannot both be current.
+> `python -m librarian.cli reindex --repo ms` settles it in one command, and
+> until it has been run neither number should be quoted. §5.1's *495 of 544* and
+> `profiles/README.md`'s *544 real documents* are derived from the same scan and
+> move with it. **This is `index_stale` applied to the plan itself** (§8, row 2):
+> a figure whose generator has moved on is exactly the failure this repository
+> was built to catch.
+
 | Finding | Detail |
 |---|---|
 | **`G2` · `G3` · `G4` are declared and not implemented** | `docs/04-decision-engine.md` gives each a threshold and `BLOCKED` as its default (`G2` emission collection `>= 15%`, `G3` excitation blocking `>= 5 OD`, `G4` crosstalk `< 5%`) and `docs/05` repeats them. **None appears in any Python file.** They are the optics spectral gates, and `optics/checks.py` states its checks as questions — *"Does this line actually excite this dye through this path?"* — carrying no gate id, so nothing ties the implementation to the declaration |
@@ -354,6 +374,162 @@ selected,' and it cannot trace back the cause of a bad recommendation."*
 
 → **FTS5/BM25 is the primary path.** Embeddings, if ever added, are a reranking
 layer only, and never participate in deciding whether a result exists.
+
+### 3.3 The librarian is a server, not a fourth agent
+
+Decided 2026-09-09.
+
+The other three are conversational agents — a session, a context window, a model
+that reasons. **This one is deliberately not a fourth,** and the reason is
+mechanical: an LLM call is **stateless**, and the store is precisely the thing
+that has to be remembered between calls. A librarian that reasoned would reload
+its own system prompt and its own description of the corpus on **every
+request**, which is the context cost the index exists to remove.
+
+So there are two layers, and only the lower one is the librarian:
+
+| Layer | What it is | Cost per call |
+|---|---|---|
+| **The store** | `kb/` · `index/kb.sqlite` · the adapters — deterministic code, no model | **zero tokens** |
+| **The tool surface** | the nine MCP tools (§5.2) | the caller's tokens: the specs once per session, then a hit's text per call |
+
+**"Retrieval that knows who asked" is therefore parameter design, not
+judgment.** The caller's role arrives as `caller_profile` and the narrowing
+happens **server-side against a versioned file** (§5.1) — not as a model
+inferring what the caller probably meant. That is what makes the same question
+under two lenses *reproducibly* different rather than differently guessed, and
+it is the same argument as §3.2's against embeddings: a filter that cannot be
+read off a file cannot be defended afterwards.
+
+**A model may be called from inside a tool, and in v1 none is.** If a question
+ever needs several sources reconciled rather than ranked, that call belongs
+inside a tool implementation behind a named trigger condition — never a resident
+agent, and never a source of numbers (§3.1 invariant 3, decision 24).
+
+### 3.4 Transport and lifetime — three conditions, not one
+
+*"The librarian can be called whenever an agent needs it"* is three separate
+claims, and each fails differently.
+
+| # | Condition | How it fails |
+|---|---|---|
+| 1 | **The server is running** | stdio dies with the session that spawned it; an HTTP service is unreachable while it is down. **No MCP client manages a server's lifetime** — uptime belongs to systemd, docker or a supervisor, not to the calling agent |
+| 2 | **It was registered when the session started** | `.mcp.json` is read at startup, so the candidate set is **closed** for that session. Adding a server mid-session is a separate approval step, not a call |
+| 3 | **Then it may be called freely — but every call is independent** | Request-response, no memory between calls. Anything that has to survive two calls is in the index, or it does not exist |
+
+**The transport is not an open choice, because §1.6 already narrowed it.** MS
+runs on the lab Windows PC and BD on macOS, and a shared local filesystem cannot
+be assumed. stdio-per-session only accumulates knowledge where the SQLite file
+sits on the caller's own disk, so it is a **single-machine** arrangement:
+
+| | stdio, spawned per session | one always-on service (HTTP/SSE) |
+|---|---|---|
+| Setup | nothing beyond `.mcp.json` | a host, a supervisor, a port |
+| Knowledge accumulates | yes — but only across sessions on **one** machine | yes, across machines |
+| Concurrent writers | undefined: two spawned processes, one file | the service serializes, once it is written to |
+| Lifetime | the session's | independent, and has to be watched |
+
+**v1 is stdio** — `mcp_server/server.py` runs `transport="stdio"` — which is
+correct while there is one indexed repository, one writer, and no tool that
+writes. **It stops being correct at BD:** the second machine is what forces the
+always-on service, not preference. **The host is the lab NAS** (decision 27);
+the registration form the callers share is decision (i), and the policy for a
+second writer is decision (j).
+
+**And the tool surface is a budget.** Every registered tool's name and parameter
+descriptions load into the **caller's** context at session start, in every
+session, used or not — and prompt caching amortizes the repeat, not the first
+load. That is a second reason a new question becomes a **parameter** of an
+existing tool before it becomes a tenth tool (decision 25).
+
+### 3.5 People are the second class of caller
+
+Decided 2026-09-09. The server lives on the **lab NAS** (decision 27), and what
+reaches it there is not only the three agents: a person asks in their own words,
+and the answer should fit who asked and what for.
+
+**Three things that deliberately do not change.**
+
+| | Why it holds |
+|---|---|
+| **No model inside the server** | A person arrives through **their own MCP client**, and that client's model composes the answer. The librarian still returns nothing but quoted text with coordinates and a tier — decision 24 stands and §3.3's argument is untouched |
+| **The same nine tools** | A person's question is a `kb_search` under a different profile, not a tenth tool (decision 25) |
+| **One always-on service** | §3.4's transport, now with a host |
+
+**And four things that do.**
+
+**① The profile namespace.** People are keyed by **role and purpose, never by
+person**: `human:*` files in `profiles/`, plus a `purpose` argument on the query.
+Same file form as the lens profiles, same versioning, applied server-side the
+same way (§5.1) — a role is *declared*, not inferred from the question. Two
+reasons it is not `person:<name>`: profiles would then multiply with people
+rather than with kinds of question, and a person-keyed profile records **who was
+looking for what** in a public repository (§6.1).
+
+**② `caller_profile` becomes an identity claim.** Among three trusted agents on
+one machine a self-declared profile is harmless — a wrong one is a bug in a
+config file. On a NAS that several people reach it asserts *who is asking* and
+nothing checks it, and a wrong role returns evidence that is plausible, correctly
+cited, and **not what that person needed** — which they cannot tell from the
+answer. Whether the service verifies the claim is decision (l).
+
+**③ The publish gate widens.** §6.1 already keeps raw query text off a public
+path, because what someone searched for is what they are about to do. A person's
+question in their own words is more revealing than an agent's, so human queries
+fall under the same gate — and ① is part of the defence: role-keyed profiles put
+no names in the log.
+
+**④ `searched_empty` has to survive being read by a human.** A model that takes
+zero results for a broken tool routes around it, which is why the server's
+instructions say otherwise; a person takes it for *"the librarian does not
+know"* and stops. The distinction from `not_searched`, and `kb_gaps`'s answer —
+**which input is missing** — are what turn an empty result into a usable answer
+instead of a dead end. That is §0.2①'s product, pointed at a person.
+
+### 3.6 The four agents are themselves in the corpus — and what that licenses
+
+Decided 2026-09-09. `map/04-agents/` already holds the structure and function of
+each (sub)agent: MS's five lenses with their owned gates and declared tools land
+there today through `adapters/ms_agents.py`, BD's nine agents in v2, RT's two
+personas in v3. Two things are added here — a slot for the **fourth repository**,
+this one, and the limit on what routing may do with any of them. §3.3 is
+untouched by either: what enters the map is this repository's profiles and tool
+surface, not a persona it does not have.
+
+**The fourth slot is not another `.claude/agents/` read.** This repository has no
+`.claude/` directory at all. Its role declarations are `profiles/` — who may ask
+what, and how it is weighted — and `mcp_server/`'s tool surface with its
+instructions, which fix what may be answered. So `map/04-agents/lib/` is
+generated from those two, not from agent files that do not exist. That the four
+repositories declare their agents in **four different kinds of file** is the
+reason the map is a generated layer rather than a naming convention: it is where
+the four forms are made comparable.
+
+**What the map licenses is the correspondence, not the choice.**
+
+| The librarian may | The librarian may not |
+|---|---|
+| report which lens declares `G10`, which agent owns `power_at_sample_mw`, which persona defines a pass condition — each read off an agent file at a locator | decide which lens a question belongs to |
+| return the **candidate** profiles for a term, each with the declaration that made it a candidate | compose a profile, or silently apply one it inferred |
+| route a challenge by the **type** of its falsifier — a measurement to MS, a run to BD, a condition of validity to RT (§5.2) | route by who sent it, or by what the answer would turn out to be |
+
+The line is §5.1's and it does not move: **`caller_profile` is a declared
+parameter, not an inference.** *"Judging better from each subagent's role"* means
+the correspondence between a term and its owner is **in the index and therefore
+citable** — `G10` belongs to lens 5 because `.claude/agents/` says so, at a
+locator — not that a model guesses which lens the asker meant. A guessed profile
+changes which evidence comes back (§3.5②) and **nothing in the answer shows that
+it was guessed**, which is the same objection §3.2 raises to embeddings.
+
+**Owner is an end of `kb_supplies`, not a tenth tool.** *"What supplies this
+field"* and *"who owns it"* are one question asked from two ends, which is the
+shape that tool already has (decision 25).
+
+**And self-description is not self-confirmation.** `map/04-agents/lib/` records
+which profiles exist and what each one weights. It does not let a retrieval
+result change a weight: the loop [FEEDBACK.md](FEEDBACK.md) §5 blocks is a
+*result* promoted to ground truth, and a weight changes only by an edit to a
+versioned file, with a human in the diff.
 
 ---
 
@@ -507,12 +683,15 @@ cannot demonstrate that. These two consume different corpora: lens 5 owns
 `bleach_photons` and G10, lens 4 owns G15–G19 and the `kb/expertise/` entries on
 immersion media, coverslip thickness and medium refractive index.
 
-Later: `ms:lens-{3,6,8}` (v1, if useful) · `bd:s1`–`s8` · `bd:lit-*` (v2) ·
-`rt:V1` · `rt:V2` (v3).
+Later: `ms:lens-{3,6,8}` (v1, if useful) · `bd:s1`–`s8` · `bd:lit-*` and the
+`human:*` role profiles (v2, §3.5) · `rt:V1` · `rt:V2` (v3).
 
-### 5.2 Eight tools
+### 5.2 Nine tools
 
-Six read, two write. **Writes touch `kb/` and `store/` only.**
+Seven read, two write. **Writes touch `kb/` and `store/` only.** The surface is
+held at nine for the reason in §3.4 — every registered spec is loaded into the
+caller's context at session start, so a new question becomes a parameter of one of
+these before it becomes a tenth tool.
 
 | Tool | Signature | Returns |
 |---|---|---|
@@ -636,7 +815,8 @@ Each phase carries an exit condition. A phase without one does not end.
 | ✅ FTS5 (`trigram` + `GLOB` fallback), `kb_search` | Korean and English queries of 2, 3 and 4 characters all hit ([BUILD.md](BUILD.md) §3) |
 | ✅ `profiles/` — lens 5 and lens 4 | The same question returns **different top three** under each — verified disjoint: lens 5 lands in `kb/literature/`, lens 4 in `kb/expertise/` |
 | ✅ **`kb_gaps`** | For `bleach_photons` × G10, returns 0 of 17 with nothing supplying it (§0.2①) |
-| ✅ `kb_get` · `kb_neighbors` · `kb_supplies` · `kb_stale` | Six read tools, all annotated read-only |
+| ✅ **`kb_inputs`** | For `radial_stiffness_n_per_m`, returns `blocked` with `power_w` unresolved and the objective list `6/6` ready — a closure taken from the signature, not a hand-written input list |
+| ✅ `kb_get` · `kb_neighbors` · `kb_supplies` · `kb_stale` | Seven read tools, all annotated read-only |
 | ✅ MCP server registered | `.mcp.json` at the root, `python -m mcp_server.server`. **Not `mcp/`** — that directory name shadows the SDK, and `python -m` puts the working directory first on `sys.path`, so the failure appears only from inside the repository |
 
 ### Phase 2 — interlocks (**before** any KB content)
@@ -659,6 +839,19 @@ Each phase carries an exit condition. A phase without one does not end.
 
 → [BUILD.md](BUILD.md) for the acceptance gate, [MIGRATION.md](MIGRATION.md) for
 the five steps. **Deletion is Step 5.**
+
+### Phase 5 — the second machine, and the second kind of caller
+
+Everything here waits for BD, because the second machine is what forces it
+(§3.4). Nothing in it reshapes v1.
+
+| Task | Exit condition |
+|---|---|
+| One always-on service on the **lab NAS** | Two callers on two machines answer the same question from **one** index, and the service's uptime is owned by something outside the calling agent — systemd, docker or a supervisor |
+| The shared registration form (decision (i)) | One line, valid in all four `.mcp.json` files and in a person's client, with no absolute interpreter path in it |
+| `human:*` role profiles + `purpose` (decision 29) | A person's question and a lens's question return **different** top results from the same corpus, the way the lens pair already does ([BUILD.md](BUILD.md) §4-B) |
+| `map/04-agents/lib/` (decision 30) | Generated from `profiles/` and the tool surface, and a query for a term reports **which** profile declares it, with a locator — never which profile the asker meant (decision 31) |
+| A second writer (decision (j)) | Two concurrent writes leave the index in a state a full rebuild reproduces exactly |
 
 ### Not in scope
 
@@ -687,6 +880,10 @@ defence against those two, so if it dies that way there is no defence left.
 | **Librarian becomes an enforcer** | It sets a value, or settles a challenge | §3.1's three invariants |
 | **Unpublished direction goes public** | Query text or a digest in a public repo | §6.1 `publish-gate`; sessions uncommitted until decided |
 | **Rank becomes worth** | A score stored in an entry | §2.1 — returned, never stored |
+| **The server is unreachable** | Every call errors — or, worse, the tools are absent from the session and nothing says so | §3.4's three conditions. Uptime belongs to the host, not to a caller; and a caller that could not reach the store records `not_searched`, which is a fact, rather than nothing |
+| **Two agents write at once** | A lost update, or an index built over a half-written entry | v1 has one writer and read-only tools. The always-on service that admits a second writer gets a policy **before** it admits it — decision (j) |
+| **A person is served under the wrong role** | A plausible, correctly cited answer that is not the one they needed — and nothing in it says so | Roles are versioned files, so a wrong answer is at least reproducible and diffable. Whether the service checks the declared role is decision (l) (§3.5②) |
+| **The librarian infers a profile** | Retrieval narrows to a lens nobody asked for, invisibly | §3.6: the agent map supplies the correspondence, the caller makes the choice (decision 31) |
 | **A silently empty read** | A moved path returns 0 rows instead of an error | Adapters assert a non-zero count per source; a source that drops to zero fails the build |
 
 The last row is BD's own recorded accident: `tools/kb.py` pointed at a renamed
@@ -723,6 +920,15 @@ silently empty read is the same failure mode as an unwired checker."*
 | 20 | Missing feedback | **`not_searched`** | Constraint ① |
 | 21 | Oracle promotion | Two distinct index SHAs **+ human approval** | Blocks the self-confirming loop ([FEEDBACK.md](FEEDBACK.md) §5) |
 | 22 | Fixture disposal | **When MIGRATION Step 1 begins** | Otherwise the same entry exists twice |
+| 23 | What the librarian **is** | **An MCP server over a deterministic store** — not a fourth conversational agent | An LLM call is stateless, so a reasoning librarian reloads the corpus description every request (§3.3) |
+| 24 | An LLM inside a tool | **None in v1.** If ever, inside one tool behind a named trigger — never resident, never originating a number | A resident agent reintroduces the per-request context cost the index exists to remove (§3.3) |
+| 25 | Growing the tool surface | **A new question becomes a parameter before it becomes a tool** | Every registered spec is loaded into the caller's context at session start (§3.4) |
+| 26 | v1 transport | **stdio, one process per session** | One repository, one machine, one writer, no tool that writes (§3.4). The always-on service arrives with BD |
+| 27 | **Host for the always-on server** | **The lab NAS** | Decided 2026-09-09; closes open (h). It is the one machine neither the microscope's Windows PC nor the simulator's macOS depends on (§1.6) |
+| 28 | How **people** reach it | **Their own MCP client.** The server returns cited evidence; the caller's model composes the answer | No synthesis layer, so decision 24 and §3.3 stand unchanged, and there is one server to keep up rather than two surfaces to keep equal (§3.5) |
+| 29 | Profile namespace for people | **Role and purpose** — `human:*` plus a `purpose` argument — **never per person** | Profiles multiply with kinds of question, not with people; and a person-keyed profile records who was looking for what in a public repository (§3.5①, §6.1) |
+| 30 | The fourth agent in `map/04-agents/` | **`lib/`, generated from `profiles/` and the tool surface** | This repository has no `.claude/agents/`; those two files are where its roles are actually declared (§3.6) |
+| 31 | What the agent map licenses | **The correspondence, not the choice** — report which lens owns a term; never infer the caller's profile | A guessed profile changes the evidence returned and nothing in the answer shows it was guessed (§3.6, §5.1) |
 
 ### Open — decided when the work reaches them
 
@@ -735,6 +941,12 @@ silently empty read is the same failure mode as an unwired checker."*
 | e | `export/` wiring — git subtree or generated commit | MIGRATION Step 3 |
 | f | Tier 1 execution site | When the weekly job is built |
 | g | Deletion timing | MIGRATION Step 4's proof |
+| i | **One registration form every caller uses** — now that the host is settled (27), a URL, and how each `.mcp.json` gets it | v2. MS's own entry hard-codes an absolute Windows interpreter path (§1.6), which is exactly what a shared form has to replace — and a person's client needs the same line (§3.5) |
+| j | **Concurrent-write policy** — single-writer queue, lock, or version-and-merge | the first write tool a second agent can reach (§8) |
+| k | Whether the claim-extraction axes — `validity` · `durability` · `operational` · `controversy_id` — enter the index as columns | `kb_search`'s `require` parameter. None of the four exists in any of the three repositories yet; if they land they arrive **opt-in per query**, never as profile filters, for §5.1's reason |
+| l | **Whether the service verifies a `caller_profile` claim**, or accepts it as declared | a NAS endpoint several people reach (§3.5②). Three trusted agents on one machine never raised it |
+| m | **The `human:*` role set** — which roles exist, and who writes them | the first caller who is not the author (§3.5①) |
+| n | Whether **owner** becomes an end of `kb_supplies`, or `map/04-agents/` is read directly | routing from the agent map (§3.6) |
 
 ---
 
