@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>librarian — live index over agentic-microscope@fbedef0</title>
+<title>librarian — one index over agentic-microscope and Brownian-Dynamics-Agent</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root {
@@ -202,45 +202,21 @@
 
 <h2>One question, two callers — the same corpus answers differently</h2>
 <p class="lede">Asked <em>“what limits how long I can image this dye”</em>. The profile is a versioned
-  file applied server-side, not something the model composes; the two lenses own different evidence, so
-  they are <strong>meant</strong> to disagree. This is the acceptance criterion in BUILD.md §4-B.</p>
+  file applied server-side, not something the model composes; the two lenses own different evidence,
+  so they are <strong>meant</strong> to disagree. This is the acceptance criterion in BUILD.md §4-B,
+  and it is asserted by a test rather than described.</p>
 
 <div class="lenses">
   <div class="card lens">
     <h3>ms:lens-5-photo-perturbation</h3>
     <p class="owns">owns <code>bleach_photons</code>, <code>lifetime_ns</code>, G10 · G20–G22</p>
-
-    <div class="hit">
-      <span class="rank">1</span> <span class="score">20.127</span>
-      <div class="uid">ms:kb/literature/README.md#what-belongs-here-and-what-does-not</div>
-      <div class="title">kb/literature/ — What belongs here, and what does not</div>
+    <div class="hit" style="border-top:0">
+      <div class="title" style="margin:0 0 8px">Its top three land in
+        <strong><code>kb/literature/</code></strong> — the tier built to be replaced by a
+        calibration.</div>
       <div class="badges">
         <span class="chip">literature_form</span>
         <span class="chip is-warning"><span class="dot"></span>evidence: assumed · tier 3</span>
-        <span class="chip">advances: false</span>
-        <span class="chip is-good"><span class="dot"></span>falsifier</span>
-      </div>
-    </div>
-
-    <div class="hit">
-      <span class="rank">2</span> <span class="score">14.255</span>
-      <div class="uid">ms:kb/literature/README.md#the-rule-that-defines-this-tier</div>
-      <div class="title">kb/literature/ — The rule that defines this tier</div>
-      <div class="badges">
-        <span class="chip">literature_form</span>
-        <span class="chip is-warning"><span class="dot"></span>evidence: assumed · tier 3</span>
-        <span class="chip">advances: false</span>
-        <span class="chip is-good"><span class="dot"></span>falsifier</span>
-      </div>
-    </div>
-
-    <div class="hit">
-      <span class="rank">3</span> <span class="score">11.812</span>
-      <div class="uid">ms:data/filters.yaml#filters.FF01-680/42</div>
-      <div class="title">filters &gt; FF01-680/42</div>
-      <div class="badges">
-        <span class="chip">registry</span>
-        <span class="chip is-warning"><span class="dot"></span>confirmed_default · tier 2</span>
         <span class="chip">advances: false</span>
       </div>
     </div>
@@ -249,49 +225,25 @@
   <div class="card lens">
     <h3>ms:lens-4-sample-optics</h3>
     <p class="owns">owns G15–G19 and the captured priors on immersion media, coverslip, medium index</p>
-
-    <div class="hit">
-      <span class="rank">1</span> <span class="score">26.808</span>
-      <div class="uid">ms:kb/expertise/imaging-priority-hierarchy.md#verdict</div>
-      <div class="title">When a proposal cannot satisfy spatial resolution, image quality, time
-        resolution and light intensity at once</div>
-      <div class="badges">
-        <span class="chip">expertise</span>
-        <span class="chip">evidence: —</span>
-        <span class="chip">advances: false</span>
-        <span class="chip is-good"><span class="dot"></span>falsifier</span>
-      </div>
-    </div>
-
-    <div class="hit">
-      <span class="rank">2</span> <span class="score">24.003</span>
-      <div class="uid">ms:kb/expertise/oil-objective-trapping-in-water.md#what-it-costs-and-why-a-clipped-verdict-still-cannot-advance</div>
-      <div class="title">Can the oil-immersion objectives trap particles in an aqueous sample?</div>
+    <div class="hit" style="border-top:0">
+      <div class="title" style="margin:0 0 8px">Its top three land in
+        <strong><code>kb/expertise/</code></strong>, and one of them is the only hit on either side
+        that may advance a verdict.</div>
       <div class="badges">
         <span class="chip">expertise</span>
         <span class="chip is-good"><span class="dot"></span>evidence: measured · tier 1</span>
         <span class="chip is-good"><span class="dot"></span>advances: true</span>
-        <span class="chip is-good"><span class="dot"></span>falsifier</span>
-      </div>
-    </div>
-
-    <div class="hit">
-      <span class="rank">3</span> <span class="score">23.575</span>
-      <div class="uid">ms:kb/expertise/sample-medium-refractive-index.md#verdict</div>
-      <div class="title">What refractive index should be assumed when the experiment does not state one</div>
-      <div class="badges">
-        <span class="chip">expertise</span>
-        <span class="chip is-warning"><span class="dot"></span>confirmed_default</span>
-        <span class="chip">advances: false</span>
-        <span class="chip is-good"><span class="dot"></span>falsifier</span>
       </div>
     </div>
   </div>
 </div>
 
 <p class="disjoint"><strong>The two result sets are disjoint</strong>, and the leading hits land in
-  different corpora — <code>kb/literature/</code> against <code>kb/expertise/</code>. Only one hit on
-  either side may advance a verdict, and it says so on its face.</p>
+  different corpora. <strong>The scores and the specific hits are deliberately not printed here.</strong>
+  They moved the moment the simulator entered the index — BM25 weights a term against the whole
+  corpus, so adding 787 documents reranked a question about neither of them. A number copied out of
+  a tool and pasted beside it is the stale table this project polices, so this panel states only
+  what a test asserts and the live page answers the rest.</p>
 
 <h2>What a calculation needs, and which of it exists</h2>
 <p class="lede"><code>kb_inputs("radial_stiffness_n_per_m")</code> — the closure over a function

@@ -187,12 +187,18 @@ function render(res) {
   const stale = res.index_stale
     ? `<span class="chip bad"><span class="dot"></span>index_stale</span>`
     : `<span class="chip ok"><span class="dot"></span>index fresh</span>`;
-  const terms = [...(res.terms_matched || []), ...(res.terms_globbed || [])];
+  // `terms` is {match: [...], glob: [...]} and the split is the point: a token
+  // FTS5 cannot form -- two Korean characters -- goes to GLOB instead of being
+  // dropped, which is the hole BUILD.md 3 measured.
+  const t = res.terms || {};
+  const parts = [];
+  if ((t.match || []).length) parts.push(`MATCH ${t.match.join(' ')}`);
+  if ((t.glob || []).length) parts.push(`GLOB ${t.glob.join(' ')}`);
   $('#meta').innerHTML = [
     `<span class="chip">${lastHits.length} hits</span>`,
     `<span class="chip">status: ${esc(res.status)}</span>`,
     stale,
-    terms.length ? `<span class="chip">terms: ${esc(terms.join(' '))}</span>` : '',
+    parts.length ? `<span class="chip">${esc(parts.join('  ·  '))}</span>` : '',
   ].join('');
 
   if (!lastHits.length) {
@@ -208,14 +214,14 @@ function render(res) {
     return `<div class="hit">
       <div class="uid">${esc(h.uid)}</div>
       <h3>${esc(h.title || h.uid)}</h3>
-      <p class="snip">${esc(h.body || '')}</p>
+      <p class="snip">${esc(h.snippet || '')}</p>
       <div class="row">
         <span class="chip ${r === 'bd' ? 'bd' : 'ms'}">${esc(r)}</span>
         <span class="chip">${esc(h.kind || '—')}</span>
         ${tierChip(h)}
         ${h.has_falsifier ? `<span class="chip ok"><span class="dot"></span>falsifier</span>` : ''}
-        ${h.reproduced === 'no' ? `<span class="chip warn"><span class="dot"></span>not reproduced — a record, not grounds</span>` : ''}
-        <span class="score">${(h.score ?? 0).toFixed(3)}</span>
+        ${h.matched_by ? `<span class="chip">${esc(h.matched_by)}</span>` : ''}
+        <span class="score">${(h.score ?? 0).toFixed(2)}</span>
         <button class="cite" data-i="${i}" aria-pressed="false">cite</button>
       </div></div>`;
   }).join('');
@@ -252,7 +258,7 @@ async function ask(ev) {
       arguments:{ question, caller_profile: profile, limit: 8 } });
     const rec = await logPost({
       query: question, caller_profile: profile, asked_by: 'human',
-      index_sha: JSON.stringify(res.indexed_at || res.index_sha || null),
+      index_sha: res.index_sha || null,
       index_stale: !!res.index_stale,
       returned: (res.hits || []).map(h => h.uid),
     });
