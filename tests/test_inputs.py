@@ -100,6 +100,45 @@ def test_the_declaring_docstring_travels_with_the_leaf(tmp_path):
     assert leaves["power_w"].declared_by == ""      # not a class field
 
 
+def test_a_forward_reference_expands_like_the_class_it_names(tmp_path):
+    """`setup: 'SampleSetup'` is the same type, quoted.
+
+    `ast.unparse` renders a string annotation with its quotes, so the base type
+    read as `'SampleSetup'` and never matched the dataclass -- the closure
+    stopped at the parameter. Every gate in MS's `sample/checks.py` is annotated
+    that way, so asking what G15 needs returned one leaf named `setup` instead
+    of the objective and the sample index it reads. PEP 563 makes the quoted
+    form the normal one, which is what makes this a defect and not an edge case.
+    """
+    write_module(tmp_path, '''
+        from dataclasses import dataclass
+
+        @dataclass(frozen=True)
+        class Objective:
+            """The objective in the light path."""
+            na: float
+            immersion: str
+
+        @dataclass(frozen=True)
+        class SampleSetup:
+            """What lens 4 needs to judge a sample."""
+            objective: Objective
+            n_sample: float | None = None
+
+        def check_na_feasibility(setup: 'SampleSetup'):
+            """G15: NA <= n_immersion."""
+    ''', name="checks.py")
+
+    _, fn = find_function(tmp_path, "check_na_feasibility")
+    paths = {l.path for l in walk_inputs(tmp_path, fn, _classes(tmp_path))}
+    assert "setup.objective.na" in paths
+    assert "setup.objective.immersion" in paths
+    assert "setup.n_sample" in paths
+    # The unexpanded parameter must not survive beside its own fields, or a
+    # caller sees the same input twice under two names.
+    assert "setup" not in paths
+
+
 # --- resolving against the registries --------------------------------------
 
 def test_registry_keys_read_the_entries_not_only_the_comment(tmp_path):

@@ -161,8 +161,23 @@ def find_function(root: Path, name: str) -> Optional[tuple[Path, ast.FunctionDef
 
 
 def _base_type(annotation: str) -> str:
+    """The class name an annotation names, quotes and unions stripped.
+
+    **A forward reference is the same type, quoted.** `ast.unparse` renders
+    `setup: "SampleSetup"` as `'SampleSetup'` -- with the quotes -- so a
+    string annotation never matched the dataclass of that name and the closure
+    stopped at the parameter instead of expanding it.
+
+    That silently under-answered for a whole module. Every gate in MS's
+    `sample/checks.py` is annotated `setup: 'SampleSetup'`, so asking what G15
+    needs returned one unresolved leaf named `setup` rather than the objective,
+    the sample index, the coverslip thickness and the imaging depth it actually
+    reads -- and PEP 563 makes the quoted form the normal one, not the odd one.
+    """
     a = annotation.replace("Optional[", "").rstrip("]")
     a = a.split("|")[0].strip()
+    if len(a) >= 2 and a[0] == a[-1] and a[0] in "\"'":
+        a = a[1:-1].strip()
     return a
 
 
