@@ -703,7 +703,7 @@ these before it becomes a tenth tool.
 
 | Tool | Signature | Returns |
 |---|---|---|
-| `kb_search` | `(question, caller_profile, limit?, require?)` | hits with `repo@sha:path#locator`, `evidence`/`tier`/`advances`, `has_falsifier`, and `index_stale`. Zero results is **`searched_empty`, distinct from `not_searched`** (constraint ①). Terms of 3+ characters go to FTS5 `MATCH` (bm25-ranked, OR-combined); shorter ones to `GLOB` → [BUILD.md](BUILD.md) §3 |
+| `kb_search` | `(question, caller_profile, limit?, require?)` | hits with `repo@sha:path#locator`, `evidence`/`tier`/`advances`, `has_falsifier`, and `index_stale`. Zero results is **`searched_empty`, distinct from `not_searched`** (constraint ①). Terms of 3+ characters go to FTS5 `MATCH` (bm25-ranked, OR-combined); shorter ones to `GLOB` → [BUILD.md](BUILD.md) §3. Also `profile_candidates` — which profiles declare the question's terms, each citing the agent file that declares it, and **applied to nothing** (§5.3) |
 | ✅ `kb_get` | `(uid)` | body, full frontmatter, and both link directions. A missed locator returns `not_found` **with the other sections of that path**, because the usual cause is an edited heading |
 | ✅ `kb_neighbors` | `(uid, relation, direction)` | `cites` · `supersedes` · `superseded_by` · `applies_to` · `same_file`. A neighbour's `status` separates *indexed* from *exists but unindexed* from *absent* |
 | ✅ `kb_inputs` | `(computation)` | **the scalar closure of a function's signature**, each leaf resolved to a registry field with its coverage, to a recorded alias, or to ranked candidates. The question *"what do I need to compute X"* is not a search, and no ranking reaches an answer that is a closure |
@@ -728,6 +728,105 @@ these before it becomes a tenth tool.
 the condition. Everything else returns `unknown`. `kb-schema.md` §6 records this
 as *"the largest unclosed item in this document"* (`C-007`); **Librarian does not
 close it, and answers a weaker question deterministically instead.**
+
+### 5.3 Profile candidates — the caller chooses, and the reason is citable
+
+Decided 2026-09-15.
+
+§5.1 makes `caller_profile` a declared parameter and §3.6 forbids inferring it.
+Both stand. **What neither supplies is how a caller who does not already know
+which profile to declare finds out.** Today `kb_search` under an unknown profile
+returns `unknown_profile` with `available` — a list of ids and nothing to choose
+by, which leaves the whole burden on the caller knowing the corpus before it
+queries the corpus.
+
+The proposal this answers was a resident model on top: read the question,
+understand the asker, pick the profile. That is decisions 23 and 24 again and the
+grounds have not moved — a reasoning librarian reloads the corpus description on
+every request, and a guessed profile changes the evidence returned with nothing
+in the answer marking it as guessed.
+
+**What is allowed is already written down.** §3.6 licenses returning *the
+candidate profiles for a term, each with the declaration that made it a
+candidate*. The shape exists too: `kb_inputs` already answers an unresolved leaf
+with `candidates` plus `candidate_query` — *"a weaker answer than the question
+asked, and an honest one"* (`librarian/inputs.py`). This is that pattern one
+level up.
+
+**A return field of `kb_search`, not a tenth tool** (decision 25):
+
+```text
+kb_search(question, caller_profile="neutral")
+ -> hits:            [...]           # the declared profile's, and applied
+    applied_profile: "neutral"
+    profile_candidates:
+      - profile:  "ms:lens-5-photo-perturbation"
+        because:  "ms@9f971a8:.claude/agents/photo-perturbation.md#owns"
+        declares: "Light level, illumination duty, total dose, wavelength choice"
+      - profile:  "ms:lens-4-sample-optics"
+        because:  "ms@9f971a8:.claude/agents/sample-optics.md#owns"
+        declares: "Objective choice, immersion, coverslip thickness, chamber"
+    candidates_applied: false
+```
+
+**Five rules. The third and fifth were found by building the ground for it.**
+
+1. **Nothing is applied.** The hits are the profile the caller declared. A
+   candidate is information, not an action — and the caller's pick then lands in
+   the **caller's own** transcript, where it is visible. That is the whole
+   difference between this and a guess.
+2. **The reason cites the agent file, never the profile.** §3.6: self-description
+   is not self-confirmation. `profiles/*.yaml` is this repository describing
+   itself; the licence to say lens 5 owns a term is MS's `.claude/agents/`, at a
+   locator.
+3. **The key is `owns`, not gate ownership.** Measured 2026-09-15: **only 3 of
+   MS's 5 agent files name a gate in their own description** —
+   `measurement-validity`, `mechanical-env`, `sample-optics` — so
+   `adapters/ms_agents.py` emits a `gates` locator for those three and for
+   neither of the other two. **Lens 5 is one of the two, and it is also one of
+   the two v1 profiles**: it named exactly one gate, `G10`, and MS removed G10 on
+   2026-09-09. Keyed on gates, this mechanism returns no candidate for the lens
+   the corpus is best prepared for. All five files carry `owns` and
+   `definition`, both already indexed as `kind=agent`, and `definition` holds the
+   invocation clause MS wrote for exactly this purpose — *"Invoke it when the
+   user mentions photobleaching, phototoxicity, light-driving …, exposure dose,
+   or illumination intensity."*
+4. **A profile with no agent file gets no candidate.** `human:*` (§3.5) and
+   `lib/` have none. An empty candidate list is the right answer there, not a
+   reason to relax rule 2.
+5. **Match over the index, never over the profiles' own lists.** Those lists were
+   read off **code** — each profile header says so — and the index covers `kb/`,
+   `data/`, `docs/` and `.claude/agents/` and **no Python at all**. A term named
+   only in a module is inert by construction, and four of the eighteen boosted
+   field terms were: `design_coverslip_um` and `resolved_slab` (lens 4),
+   `dose_limit_j_cm` and `resolved_irradiance` (lens 5). `Profile.score` matches
+   a boosted field as a **substring of a document's title, body and
+   conditions**, so a term no document carries can never raise anything. Removed
+   2026-09-15, each with its reason left in the file.
+
+**A profile is a claim about another repository, so it goes stale.**
+`ms-lens5-photo-perturbation.yaml` boosted `G10` for six days after MS deleted
+the gate and **nothing caught it**: `librarian/drift.py` reads MS's `docs/`
+against MS's code and never reads this repository's own files. That is the one
+place a dead identifier could sit unnoticed, and it is load-bearing here — an
+owner list naming a retired gate is a wrong answer **with a citation attached**,
+which is the single kind of output this design exists to prevent.
+`tests/test_profiles.py` now checks all three lists on every run: gate ids
+against the gates MS's code declares, field terms against what the index can
+actually match, and `kind_weight` keys against `librarian.doc.KINDS`.
+
+**Two strengths, because the two kinds of term fail differently.** A retired gate
+stays in prose — `docs/04` §6 keeps G10's formulas and explains the removal — so
+corpus presence would not have caught it, and gate ids are checked against code
+instead. A field is the reverse: `n_medium` is declared by no registry
+(`optics/components.py` computes it from a lookup keyed by one) and lens 4 is
+right to boost it, so what is checked there is only whether the boost can ever
+fire.
+
+**What this does not do.** It does not rank candidates against each other beyond
+the retrieval score that produced them, it does not compose a profile (§3.6), and
+it settles nothing about **owner**, which stays an end of `kb_supplies` rather
+than a tenth tool (decision 25, open (n)).
 
 ---
 
@@ -937,6 +1036,9 @@ silently empty read is the same failure mode as an unwired checker."*
 | 29 | Profile namespace for people | **Role and purpose** — `human:*` plus a `purpose` argument — **never per person** | Profiles multiply with kinds of question, not with people; and a person-keyed profile records who was looking for what in a public repository (§3.5①, §6.1) |
 | 30 | The fourth agent in `map/04-agents/` | **`lib/`, generated from `profiles/` and the tool surface** | This repository has no `.claude/agents/`; those two files are where its roles are actually declared (§3.6) |
 | 31 | What the agent map licenses | **The correspondence, not the choice** — report which lens owns a term; never infer the caller's profile | A guessed profile changes the evidence returned and nothing in the answer shows it was guessed (§3.6, §5.1) |
+| 32 | **Whether Librarian ever calls a source repository** | **Never.** It is an MCP *server* and never an MCP *client* of MS, BD or RT. Ingest stays one-directional: `git fetch`, and the sha becomes every hit's provenance | Confirmed 2026-09-15. Calling out breaks all three of §3.4's conditions at once — an answer would depend on another agent's session being up — and a two-way call has no depth bound, so the loop circulates doubt instead of topics (`C-001`). Edge 4 stays a routed file drop |
+| 33 | **How a caller finds its profile** | **Candidates returned with citations, never applied** — a return field of `kb_search`, keyed on each agent file's `owns`, with `candidates_applied: false` | Decided 2026-09-15, §5.3. Decision 31 forbids inferring the profile and says nothing about how a caller learns which to declare; this is that, without a model — the pick happens in the caller's transcript where it is visible |
+| 34 | **Whether this repository's own files are drift-checked** | **Yes, by `tests/test_profiles.py`** — gate ids against MS's code, field terms against what the index can match, `kind_weight` against `KINDS` | Decided 2026-09-15. `librarian/drift.py` reads MS against MS and never read `profiles/`, so a profile boosted `G10` for six days after MS deleted the gate. An owner list naming a retired gate is a wrong answer with a citation attached (§5.3) |
 
 ### Open — decided when the work reaches them
 

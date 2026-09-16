@@ -17,7 +17,7 @@ kind_weight:                     # a weight, never a filter
   agent:           0.5
 
 boost:
-  gate:  [G10, G20, G21, G22]              # from photo/checks.py docstrings
+  gate:  [G20, G21, G22]                   # from photo/checks.py docstrings
   field: [bleach_photons, lifetime_ns]     # from setup.<field> in photo/*.py
   path_prefix: [data/fluorophores.yaml, kb/literature]
 
@@ -35,6 +35,35 @@ Both looked like rigour and both removed the answer.
 |---|---|---|
 | `require_fields: [evidence, tier]` — a hit without these is dropped | **495 of 544 documents carry no evidence tier**, including every `docs/` section. Asked what G10 checks, the profile dropped the answer | `return_always`: the tier is **carried**. Carrying it is what stops a caller mistaking `assumed` for `measured`; dropping untiered documents was never the mechanism. A hard filter is opt-in per query (`require`), not per profile |
 | `exclude: reproduced: [no]` | Most registry entries state `verified: false` deliberately — the headers say the values are catalog nominals whose wings are wrong. `data/fluorophores.yaml > AlexaFluor488` is exactly what lens 5 needs | `demote`: BD's rule is not to raise an unreproduced value as **grounds**. It is still the right pointer |
+
+## A profile is a claim about another repository, and it went stale
+
+**`G10` was in the list above until 2026-09-15.** MS removed the gate on
+2026-09-09 — it had never returned anything — and the profile went on boosting it
+for six days. Nothing caught it: `librarian/drift.py` reads MS's `docs/` against
+MS's code, and never read this folder. So `profiles/` was the one place a dead
+identifier could sit unnoticed, in a repository built to catch exactly that.
+
+It is not cosmetic. `boost.gate` changes which evidence a caller gets back, and
+the profile-candidate design ([../PLAN.md](../PLAN.md) §5.3) reads these lists to
+say **which lens owns a term**. An owner list naming a retired gate is a wrong
+answer *with a citation attached*.
+
+`tests/test_profiles.py` checks all three lists on every run, **at two different
+strengths**, because the two kinds of term fail differently:
+
+| List | Checked against | Why that one |
+|---|---|---|
+| `boost.gate` | the gate ids MS's **code** declares (`librarian.gaps.gate_functions`) | A retired gate stays in prose — `docs/04` §6 keeps G10's formulas and explains the removal — so presence in the corpus would not have caught it |
+| `boost.field` | whether **any indexed document carries the term** | The reverse: `n_medium` is declared by no registry (`optics/components.py` computes it from a lookup keyed by one) and lens 4 is right to boost it. What matters is only whether the boost can ever fire |
+| `kind_weight` | `librarian.doc.KINDS` | An unlisted kind scores 1.0, so a misspelled one is a weight that never applies — indistinguishable from one considered and set |
+
+**Four field terms were inert and are gone** — `design_coverslip_um`,
+`resolved_slab`, `dose_limit_j_cm`, `resolved_irradiance`. That was structural,
+not sloppiness: these lists are read off **code**, and the index covers `kb/`,
+`data/`, `docs/` and `.claude/agents/` and **no Python at all**. A field named
+only in a module can never be matched, because `Profile.score` matches a boosted
+field as a substring of a document's title, body and conditions.
 
 ## Scoring
 

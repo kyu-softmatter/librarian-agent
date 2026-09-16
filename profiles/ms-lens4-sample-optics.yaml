@@ -33,12 +33,18 @@ boost:
     - objective
     - imaging_depth_um
     - resolved_coverslip_um
-    - design_coverslip_um
     - n_immersion
     - n_medium
     - working_distance
     - unspaced_mount
-    - resolved_slab
+  # `design_coverslip_um` and `resolved_slab` were listed here and are removed
+  # 2026-09-15. `Profile.score` matches a boosted field as a **substring of a
+  # document's title, body and conditions** (librarian/index.py), and those two
+  # names are carried by no indexed MS document -- they exist in `sample/*.py`
+  # as gate outputs and nowhere a search can reach. A term that can never fire
+  # is not wrong, it is inert, and inert reads exactly like considered. Put
+  # either back the day MS writes it down; `tests/test_profiles.py` is what
+  # says whether it can fire.
   path_prefix:
     - data/objectives.yaml
     - data/pixel_size.yaml
