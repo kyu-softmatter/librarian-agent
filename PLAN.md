@@ -681,10 +681,19 @@ not have.
 > done with the correspondence stands unchanged, because none of them depended
 > on the artefact.
 
-**The fourth repository is not another `.claude/agents/` read.** This one has no
-`.claude/` directory at all. Its role declarations are `profiles/` — who may ask
-what, and how it is weighted — and `mcp_server/`'s tool surface with its
-instructions, which fix what may be answered. What a caller needs from those
+**The fourth repository is not another `.claude/agents/` read.** This one
+declares no agents. Its role declarations are `profiles/` — who may ask what,
+and how it is weighted — and `mcp_server/`'s tool surface with its
+instructions, which fix what may be answered.
+
+> This read *"has no `.claude/` directory at all"* until 2026-09-16, when one
+> arrived holding `settings.json` and nothing else. The argument is unchanged —
+> that file declares **no agent and no role**; it is a harness permission list.
+> What it does do is worth noting: it denies `librarian promote` and edits to
+> `cache/` and `index/`, which puts three of this document's decisions where a
+> tool has to obey them rather than where a reader has to remember them
+> (21's human approval, 9's read-only ingest, and `map/`'s derived-never-edited
+> rule). What a caller needs from those
 comes back from `kb_search` itself: `known` on an unknown profile, and
 `profile_candidates` with a citation on any query (§5.3). A committed file
 restating them would be self-description with no reader, which is why decision 38
