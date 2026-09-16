@@ -1,8 +1,9 @@
 # `mcp_server/` — the MCP server
 
-Seven read tools and two write tools. **Writes touch `kb/` and `store/` only** —
-nothing in a source repository is written, ever; anything that has to land there
-arrives as a pull request.
+**Seven read tools and one write.** `kb_feedback` appends a retrieval session;
+`kb_challenge_raise` is the second write tool and is not here yet. **Writes touch
+`kb/` and `store/` only** — nothing in a source repository is written, ever;
+anything that has to land there arrives as a pull request.
 
 | Tool | Purpose |
 |---|---|
@@ -14,7 +15,7 @@ arrives as a pull request.
 | `kb_gaps` | gates `BLOCKED` for want of an input — **v1's primary product**. Built: `librarian/gaps.py` |
 | `kb_stale` | the drift report. Built: `librarian/drift.py` |
 | `kb_challenge_raise` | writes `store/challenge/`, routes by falsifier type |
-| `kb_feedback` | writes `kb/08-retrieval/sessions/` |
+| `kb_feedback` | **writes.** One retrieval session — which hits were actually cited. Local and never committed. Built: `librarian/feedback.py` |
 
 ## Why the folder is not called `mcp/`
 
@@ -111,13 +112,17 @@ why the host correction above changed nothing in this paragraph
 
 ## What is not here
 
-`kb_challenge_raise` and `kb_feedback` are the write half of this surface.
+`kb_challenge_raise` is the other half of the write surface, and what it waits
+on is not a policy: a challenge routes by **the type of the falsifier it
+cites** — a measurement to the microscope, a run to the simulator, an unchecked
+condition of validity to research-topic — which makes it the retirement
+mechanism rather than a write path, and `falsifier_cited` has to point **into
+the target** for that routing to mean anything.
 
-A challenge has to route by the type of the falsifier it cites. A retrieval
-record stores raw query text in a repository that is public — what someone was
-looking for is what they are about to do — and **that gate is now settled**:
-`sessions/` is local only and permanently, raw query text is committed in
-`oracles/` alone, and `librarian/publish.py` is the boundary a writer checks
-before it writes. Both tools also write through `librarian/record.py`, so a
-retried call is one record rather than two.
-→ [../PLAN.md](../PLAN.md) §6.1 · §3.7
+**And promotion is not here either.** `sessions/ → oracles/` is human-approved
+and deliberately not a tool: an agent promoting its own retrieval results to
+ground truth is a self-confirming loop, and the approval is the only damping on
+it. `python -m librarian.cli sessions` is the view that approval is given
+against — it reports which questions meet every condition but that one, and
+promotes nothing.
+→ [../PLAN.md](../PLAN.md) §6.1 · §3.7 · [../FEEDBACK.md](../FEEDBACK.md) §5

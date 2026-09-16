@@ -17,6 +17,7 @@ CACHE = ROOT / "cache"
 INDEX = ROOT / "index" / "kb.sqlite"
 PROFILES = ROOT / "profiles"
 MANIFEST = ROOT / "map" / "manifest.json"
+SESSIONS = ROOT / "kb" / "08-retrieval" / "sessions"
 
 
 def _root(repo: str) -> Path:
@@ -382,6 +383,61 @@ def cmd_inputs(args) -> int:
     return 0
 
 
+def cmd_sessions(args) -> int:
+    """The local retrieval sessions, grouped by what they asked.
+
+    **This exists because decision 37 rests on a person reading them.** An
+    oracle may be committed to a public repository because promotion is
+    human-approved, and that approval is the disclosure review -- it cannot be
+    given against a folder nobody can look at. The listing is derived here
+    rather than written into an `INDEX.md`, which is the one shape that would
+    need a lock and is also the file this repository exists because of.
+
+    It approves nothing. `promote` is not a subcommand, and that is deliberate.
+    """
+    from collections import defaultdict
+
+    from librarian.feedback import promotion_status
+    from librarian.record import read_records
+
+    recs = read_records(SESSIONS)
+    if not recs:
+        print(f"no sessions in {SESSIONS.relative_to(ROOT)}/")
+        print("  (kb_feedback writes them. The folder is gitignored by "
+              "decision 37 -- local only, permanently.)")
+        return 0
+
+    groups = defaultdict(list)
+    for r in recs:
+        groups[(r.get("query", ""), r.get("caller_profile", ""))].append(r)
+
+    print(f"{len(recs)} session(s) over {len(groups)} question(s) in "
+          f"{SESSIONS.relative_to(ROOT)}/  [local only, never committed]\n")
+    ready = 0
+    for (query, profile), rs in sorted(groups.items()):
+        st = promotion_status(SESSIONS, query, profile)
+        verdicts = Counter(r.get("verdict") for r in rs)
+        mark = ""
+        if st["qualifying_index_states"] >= st["reproductions_required"]:
+            mark = "   <- reproduced; awaiting human approval"
+            ready += 1
+        print(f"  {query[:72]!r}")
+        print(f"    {profile}   {dict(verdicts)}{mark}")
+        print(f"    index states with a citation: "
+              f"{st['qualifying_index_states']}/{st['reproductions_required']}")
+        if args.verbose:
+            for r in rs:
+                cited = ", ".join(r.get("cited", [])) or "-"
+                print(f"      {r.get('index_sha')}  {r.get('verdict'):14s} {cited}")
+        print()
+    if ready:
+        print(f"{ready} question(s) meet every condition except approval. "
+              f"Approving one means promoting it into kb/08-retrieval/oracles/,")
+        print("which is committed -- so it is also a decision that its query "
+              "text may be published (PLAN.md 6.1).")
+    return 0
+
+
 def cmd_drift(args) -> int:
     from librarian.drift import drift
     findings = []
@@ -487,6 +543,13 @@ def main(argv=None) -> int:
     inp.add_argument("--repo", default="ms")
     inp.add_argument("--json", action="store_true")
     inp.set_defaults(fn=cmd_inputs)
+
+    ses = sub.add_parser("sessions",
+                         help="local retrieval sessions, and what each needs "
+                              "before it could become an oracle")
+    ses.add_argument("-v", "--verbose", action="store_true",
+                     help="one line per session")
+    ses.set_defaults(fn=cmd_sessions)
 
     d = sub.add_parser("drift", help="does what is declared still match what exists")
     d.add_argument("--repo", action="append", default=None)

@@ -40,11 +40,10 @@ One substitution resolves it.
 > The first is a judgment; the second is a fact. And the signal that improves
 > retrieval is the second.
 
-`kb/08-retrieval/sessions/<id>.json`:
+`kb/08-retrieval/sessions/<date>-<profile>-<digest>.json`:
 
 ```json
 {
-  "id": "ret-8f3a1c02",
   "schema": "librarian.retrieval/0.1",
 
   "query": "bleach photons for AlexaFluor488 at 470 nm",
@@ -63,9 +62,21 @@ One substitution resolves it.
   "action": "none",
   "action_ref": null,
 
-  "note": "found the registry field, but its value is empty so G10 is still BLOCKED"
+  "note": "found the registry field, but its value is empty so the gate is still BLOCKED"
 }
 ```
+
+> **No `id` field, and that changed when it was built.** This example carried
+> `"id": "ret-8f3a1c02"`. Decision 36 names the file by a sha256 of its own
+> content, so an `id` stored *inside* the content would have to be hashed over
+> a record excluding itself — two hashes for one identity, which can disagree.
+> It is derived from the filename instead (`ret-<digest>`), for the same reason
+> `advances` is a property on `Doc` and not a column.
+>
+> **`index_sha` and `index_stale` are read off the index, not accepted from the
+> caller.** A caller-supplied SHA could name a state that never existed, and
+> §5's promotion condition turns on **two distinct** ones. They are not
+> parameters of `kb_feedback`.
 
 ### Which fields may be branched on
 

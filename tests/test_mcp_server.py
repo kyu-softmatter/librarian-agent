@@ -7,8 +7,10 @@ import pytest
 from librarian.doc import Doc
 from librarian.index import build
 
-TOOLS = {"kb_search", "kb_get", "kb_neighbors", "kb_supplies", "kb_gaps",
-         "kb_stale", "kb_inputs"}
+READ_TOOLS = {"kb_search", "kb_get", "kb_neighbors", "kb_supplies", "kb_gaps",
+              "kb_stale", "kb_inputs"}
+WRITE_TOOLS = {"kb_feedback"}
+TOOLS = READ_TOOLS | WRITE_TOOLS
 
 
 def _call(server, name, args=None):
@@ -50,13 +52,30 @@ def test_the_declared_tools_are_the_registered_tools():
     assert {t.name for t in asyncio.run(s.list_tools())} == TOOLS
 
 
-def test_every_tool_is_annotated_read_only():
-    """Nothing here writes. The annotation is how a client knows before calling."""
+def test_exactly_one_tool_writes_and_it_says_so():
+    """The annotation is how a client knows before calling, not after.
+
+    Asserted as a **partition** rather than as "everything is read-only",
+    which is what this said while nothing wrote. Stated that way it would have
+    had to be deleted the moment a write tool landed -- and a test deleted to
+    make room for a change stops guarding the thing it was for. Now adding a
+    second write tool fails here until it is declared.
+    """
     from mcp_server.server import build as build_server
-    for t in asyncio.run(build_server().list_tools()):
-        assert t.annotations is not None, t.name
-        assert t.annotations.read_only_hint is True, t.name
-        assert t.annotations.destructive_hint is False, t.name
+    listed = {t.name: t.annotations for t in asyncio.run(build_server().list_tools())}
+    assert set(listed) == TOOLS
+
+    writers = {n for n, a in listed.items() if a.read_only_hint is not True}
+    assert writers == WRITE_TOOLS, writers
+
+    for name, a in listed.items():
+        assert a is not None, name
+        # Nothing here is destructive, writers included: a write is an
+        # append-only record under a content-addressed name, so a retry
+        # collapses into the record it already wrote (PLAN.md §3.7).
+        assert a.destructive_hint is False, name
+    for name in WRITE_TOOLS:
+        assert listed[name].idempotent_hint is True, name
 
 
 def test_a_missing_index_is_a_status_not_a_crash(tmp_path):
@@ -66,7 +85,11 @@ def test_a_missing_index_is_a_status_not_a_crash(tmp_path):
     from mcp_server import tools
     s = MCPServer(name="t", version="0")
     tools.register(s, index_path=tmp_path / "absent.sqlite",
-                   profiles_dir=tmp_path / "profiles")
+                   profiles_dir=tmp_path / "profiles",
+                   # Given a real directory on purpose: without one
+                   # `kb_feedback` answers `no_session_store` and never reaches
+                   # the index, which would make it pass this test vacuously.
+                   sessions_dir=tmp_path / "sessions")
     for name in sorted(TOOLS - {"kb_inputs"}):   # kb_inputs reports a missing
         # checkout before it reaches the index, so it has its own case below
         args = {"question": "x"} if name == "kb_search" else {}
@@ -76,9 +99,14 @@ def test_a_missing_index_is_a_status_not_a_crash(tmp_path):
             args = {"name": "G10"}
         if name == "kb_inputs":
             args = {"computation": "radial_stiffness_n_per_m"}
+        if name == "kb_feedback":
+            args = {"query": "x", "caller_profile": "neutral",
+                    "verdict": "no_result"}
         out = _call(s, name, args)
         assert out["status"] == "no_index", name
         assert "reindex" in out["detail"]
+    # And nothing was written while there was no index to record against.
+    assert not (tmp_path / "sessions").exists()
 
 
 def test_kb_search_reports_an_unknown_profile_rather_than_guessing(server):

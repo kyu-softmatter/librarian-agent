@@ -141,7 +141,8 @@ Three of those constraints shape everything here:
 
 ## v1 — what is built
 
-Read tools only. Measured 2026-09-15 against `agentic-microscope` @ `9f971a8`
+Seven read tools and one write. Measured 2026-09-15 against
+`agentic-microscope` @ `9f971a8`
 and `Brownian-Dynamics-Agent` @ `a18e171` — **the command that computes each row
 is below the table**, because every figure here has already gone stale once:
 
@@ -151,7 +152,7 @@ is below the table**, because every figure here has already gone stale once:
 | Cross-references | **557** — 437 indexed · 91 present but unindexed · 29 broken |
 | Registry coverage rows | **25** |
 | Drift and defect findings | **34** |
-| Tests | **117**, 85 of them offline |
+| Tests | **159**, 127 of them offline |
 
 ```bash
 pip install -e ".[dev]"
@@ -170,10 +171,10 @@ python -m librarian.cli drift --repo ms
 python -m pytest
 ```
 
-### The seven read tools
+### The eight tools
 
 Registered through [`.mcp.json`](.mcp.json) as `python -m mcp_server.server`.
-All annotated read-only; nothing writes to any repository.
+Seven are annotated read-only. **Nothing writes to any source repository, ever.**
 
 | Tool | Answers |
 |---|---|
@@ -184,6 +185,26 @@ All annotated read-only; nothing writes to any repository.
 | `kb_supplies` | what supplies a field, or what a gate is waiting for |
 | `kb_gaps` | which gate is `BLOCKED`, for want of which input |
 | `kb_stale` | whether the index is behind, and whether what is declared still matches what exists |
+| `kb_feedback` | **writes.** Which hits a search was actually answered with — one local, uncommitted session |
+
+**`kb_feedback` is the only one that writes, and what it records is a fact.**
+Not *"the answer was good"* — a judgment, and unstorable — but *"these are the
+uids I cited"*, which is also a test: retrieval has no grader, so a past
+confirmed citation stands in for one. It is never inferred from what the caller
+was sent, because inferred it stops being a fact. There is no satisfaction
+score anywhere, deliberately: averaged, twenty ranking failures and twenty
+missing entries are the same number, while the fix for one lives in `profiles/`
+and for the other in `kb/`.
+
+It also refuses `not_searched`, which is the default of a query nobody
+recorded — *this was never checked*, rather than *it was fine*. Calling the
+tool is the record that someone looked, so it cannot be the verdict.
+
+**Promotion to a regression oracle is not a tool.** An agent promoting its own
+retrieval results to ground truth is a self-confirming loop — what ranks high
+gets cited, having been cited it becomes an oracle, being an oracle keeps it
+ranked high — and human approval is the only damping on it. `librarian sessions`
+is the view that approval is given against.
 
 ### It is a server, not a fourth agent
 
@@ -321,7 +342,7 @@ None of these was read off a sentence that says so.
 | | Blocked on |
 |---|---|
 | `kb_challenge_raise` — raise a doubt, routed by falsifier type | nothing; next |
-| `kb_feedback` — the retrieval-feedback store (`kb/08-retrieval/`) | nothing; the publish-gate scope was the blocker and is settled. `sessions/` is local only and permanently, and raw query text is committed only in `oracles/`, where promotion's human approval is also the disclosure review → [PLAN.md](PLAN.md) §6.1 |
+| ~~`kb_feedback` — the retrieval-feedback store~~ | **Built.** The publish-gate scope was the blocker and is settled: `sessions/` is local only and permanently, and raw query text is committed only in `oracles/`, where promotion's human approval is also the disclosure review → [PLAN.md](PLAN.md) §6.1 |
 | The first `kb/literature/` entry | nothing; it is the only KB folder v1 can fill |
 
 ### v2 — the simulator, and the acquisition archive

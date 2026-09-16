@@ -37,6 +37,27 @@ STALE_NOTE = (
     "not an error."
 )
 
+LOCAL_ONLY_NOTE = (
+    "A session is written to `kb/08-retrieval/sessions/`, which is gitignored "
+    "permanently: it holds raw query text and this repository is public, and "
+    "what someone was looking for is what they are about to do. `committed: "
+    "false` is the policy, not a pending step."
+)
+
+PROMOTION_NOTE = (
+    "`promotion_status` is a report and promotes nothing. An oracle needs the "
+    "same result under two distinct index states and a human's approval -- an "
+    "agent promoting its own retrieval results to ground truth is a "
+    "self-confirming loop, and the approval is the only damping on it."
+)
+
+VERDICT_NOTE = (
+    "useful | wrong_ranking (fix in profiles/) | missing_entry (fix in kb/) | "
+    "wrong_tier (fix the entry's frontmatter) | no_result (tokenizer or "
+    "adapter). `not_searched` is the default of an unrecorded query and is not "
+    "accepted here."
+)
+
 TIER_NOTE = (
     "Every hit carries `evidence` and `advances`. `advances: false` means that "
     "tier cannot advance a verdict -- a literature value never can, by rule. "
@@ -45,9 +66,24 @@ TIER_NOTE = (
 )
 
 
+def _today() -> str:
+    """The day the record is about. Read once, at the call site, so nothing
+    deeper in the write path depends on a clock (`librarian/record.py`)."""
+    from datetime import date
+    return date.today().isoformat()
+
+
 def register(server, index_path: Path, profiles_dir: Path,
-             cache_dir: Optional[Path] = None) -> None:
+             cache_dir: Optional[Path] = None,
+             sessions_dir: Optional[Path] = None) -> None:
     read_only = ToolAnnotations(read_only_hint=True, destructive_hint=False)
+    # `kb_feedback` writes, and the annotation has to say so or a client will
+    # treat it as safe to retry and to call speculatively. It is not
+    # destructive: every write is a new append-only record under a
+    # content-addressed name, so a retry collapses into the record it already
+    # wrote (PLAN.md §3.7). `idempotent_hint` is that promise, declared.
+    appends = ToolAnnotations(read_only_hint=False, destructive_hint=False,
+                              idempotent_hint=True)
 
     def _open() -> Optional[Index]:
         return Index(index_path) if index_path.exists() else None
@@ -284,6 +320,95 @@ def register(server, index_path: Path, profiles_dir: Path,
                 "links": idx.link_counts(),
                 "findings": idx.findings(),
                 "entry_defects": idx.entry_defects(),
+            }
+        finally:
+            idx.close()
+
+    @server.tool(annotations=appends)
+    def kb_feedback(query: str, caller_profile: str, verdict: str,
+                    returned: Optional[list[str]] = None,
+                    cited: Optional[list[str]] = None,
+                    missing: Optional[list[str]] = None,
+                    asked_by: str = "agent", action: str = "none",
+                    action_ref: Optional[str] = None,
+                    note: Optional[str] = None) -> dict[str, Any]:
+        """Record which hits a search actually answered with. **This writes.**
+
+        One call is one session under `kb/08-retrieval/sessions/`, which is
+        local and never committed. Nothing in any source repository is touched.
+
+        **Report `cited` -- the uids you actually used.** It is a fact, and it
+        is the only thing here that improves retrieval: retrieval has no
+        grader, so a past confirmed citation stands in for one. It is never
+        inferred from what you were sent, because inferred it stops being a
+        fact. `cited` must be a subset of `returned`; what you needed and did
+        not get goes in `missing`.
+
+        `verdict` separates causes, because the fix differs by cause:
+        `useful` · `wrong_ranking` (the fix is in `profiles/`) ·
+        `missing_entry` (in `kb/`) · `wrong_tier` (the entry's frontmatter) ·
+        `no_result` (tokenizer or adapter). **`not_searched` is not accepted**:
+        it is the default of a query nobody recorded, and calling this is the
+        record that someone looked.
+
+        `asked_by` is a role -- `agent`, or a `human:*` profile -- and never a
+        name. `note` is prose for a person to read; no code branches on it, so
+        do not put a number or a status in it.
+
+        There is deliberately **no satisfaction score**. A score makes
+        averaging possible, and averaged, 20 ranking failures and 20 missing
+        entries are the same number while their fixes live in different files.
+
+        Calling twice with the same report is safe: the record is named by a
+        digest of its content, so the second call returns the first one's id
+        with `created: false`.
+
+        Returns `promotion_status`, which is how far this query is from
+        becoming a regression oracle. **It promotes nothing.** Promotion needs
+        the same result under two distinct index states *and* human approval --
+        an agent promoting its own retrieval results to ground truth is a
+        self-confirming loop, and the approval is the only damping on it.
+        """
+        if sessions_dir is None:
+            return {"status": "no_session_store",
+                    "detail": "this server was registered without a sessions "
+                              "directory, so it has nowhere to write."}
+        idx = _open()
+        if idx is None:
+            return NO_INDEX
+        try:
+            from librarian.feedback import (FeedbackError, promotion_status,
+                                            record_id, session, write)
+            profiles = load_profiles(profiles_dir)
+            current = _current_shas(idx)
+            try:
+                rec = session(
+                    query=query, caller_profile=caller_profile, verdict=verdict,
+                    returned=returned, cited=cited, missing=missing,
+                    asked_by=asked_by, action=action, action_ref=action_ref,
+                    note=note,
+                    index_sha=idx.repo_shas,
+                    index_stale=idx.is_stale(current),
+                    known_uids=idx.has_uids(list(returned or [])),
+                    known_profiles=set(profiles),
+                )
+            except FeedbackError as e:
+                # A refusal names the rule, not just the field. The caller is a
+                # model, and "invalid verdict" gets retried with another guess.
+                return {"status": "refused", "detail": str(e),
+                        "verdicts": VERDICT_NOTE}
+            written = write(sessions_dir, rec, _today())
+            return {
+                "status": "ok",
+                "id": record_id(written),
+                "created": written.created,
+                "path": str(written.path),
+                "committed": False,
+                "index_sha": rec["index_sha"],
+                "index_stale": rec["index_stale"],
+                "promotion_status": promotion_status(
+                    sessions_dir, query, caller_profile),
+                "notes": [LOCAL_ONLY_NOTE, PROMOTION_NOTE],
             }
         finally:
             idx.close()

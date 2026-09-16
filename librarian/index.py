@@ -386,6 +386,17 @@ class Index:
 
     # -- one document ------------------------------------------------------
 
+    def has_uids(self, uids: Iterable[str]) -> set[str]:
+        """Which of these uids the index holds. Used to refuse a session naming
+        a hit that does not exist -- an oracle built on one could never pass."""
+        uids = list(dict.fromkeys(uids))
+        if not uids:
+            return set()
+        rows = self.db.execute(
+            f"SELECT uid FROM doc WHERE uid IN ({','.join('?' * len(uids))})",
+            uids)
+        return {r["uid"] for r in rows}
+
     def get(self, uid: str) -> dict[str, Any] | None:
         """One document in full, with its outbound and inbound references.
 

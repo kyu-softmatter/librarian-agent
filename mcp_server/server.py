@@ -4,10 +4,14 @@
 
 Launched by an MCP client, normally through `.mcp.json` in the repository root.
 
-Deliberately absent: anything that writes. `kb_challenge_raise` and `kb_feedback`
-are the write half of this surface and they are not here yet -- a challenge has
-to route by falsifier type, and a retrieval record stores raw query text in a
-public repository, so the publish-gate scope has to be settled first.
+**Seven read tools and one write.** `kb_feedback` appends a retrieval session to
+`kb/08-retrieval/sessions/`, which is local and permanently gitignored -- the
+publish-gate scope that blocked it is settled (PLAN.md §6.1, decision 37).
+Nothing in any source repository is written, ever.
+
+Still absent: `kb_challenge_raise`. It has to route by the type of the
+falsifier it cites, and that routing is the retirement mechanism rather than a
+write path.
 """
 
 from __future__ import annotations
@@ -23,7 +27,9 @@ NAME = "librarian"
 
 INSTRUCTIONS = """\
 One indexed knowledge base over the microscope repository, with retrieval
-profiled per calling agent. Read-only: nothing here writes to any repository.
+profiled per calling agent. Seven tools read; `kb_feedback` writes one local,
+uncommitted record. **Nothing here writes to any source repository, ever** --
+anything that has to land there arrives as a pull request.
 
 Four things about the results, each of which looks like a failure and is not.
 
@@ -54,19 +60,27 @@ that cannot be walked back to a location is not usable here.
 evidence, because the two lenses own different things. Use `neutral` when no
 lens applies rather than guessing at one.
 
+One thing worth doing rather than knowing. **Report which hits you actually
+cited, with `kb_feedback`.** Retrieval here has no grader, so a past confirmed
+citation stands in for one, and `cited` is the only signal that improves it. It
+is never inferred from what you were sent: inferred, it stops being a fact.
+Recording nothing leaves the query at `not_searched`, which means *this was
+never checked* rather than *it was fine*.
+
 This server originates no numbers. Every value it returns is quoted from a file
 with its location attached.
 """
 
 
 def build() -> MCPServer:
-    """The server, with the read tools registered. Opens no file."""
+    """The server, tools registered. Opens no file."""
     server = MCPServer(name=NAME, instructions=INSTRUCTIONS, version="0.1.0")
     tools.register(
         server,
         index_path=ROOT / "index" / "kb.sqlite",
         profiles_dir=ROOT / "profiles",
         cache_dir=ROOT / "cache",
+        sessions_dir=ROOT / "kb" / "08-retrieval" / "sessions",
     )
     return server
 

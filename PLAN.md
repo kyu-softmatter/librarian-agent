@@ -811,7 +811,7 @@ these before it becomes a tenth tool.
 | `kb_gaps` | `(caller_profile)` | gates `BLOCKED` for want of an input · registry fields still empty · `has_falsifier = 0` entries. **v1's primary product** (§0.2①) |
 | ✅ `kb_stale` | `()` | staleness **and** the §4.3 drift report, both stored in the index at build time so the server needs the index and nothing else |
 | `kb_challenge_raise` | `(target_uid, doubt_kind, falsifier_cited, …)` | writes `store/challenge/` and **routes by falsifier type**. Refused without `falsifier_cited` |
-| `kb_feedback` | `(query, caller_profile, returned, cited, verdict, …)` | writes `kb/08-retrieval/sessions/` → [FEEDBACK.md](FEEDBACK.md) |
+| ✅ `kb_feedback` | `(query, caller_profile, verdict, returned?, cited?, missing?, asked_by?, action?, note?)` | writes one session to `kb/08-retrieval/sessions/`, local and never committed. `index_sha`, `index_stale` and the id are **derived, not parameters**. Refuses `not_searched` — that is the default of a query nobody recorded, and the call is the record that someone looked. Returns `promotion_status`, which promotes nothing → [FEEDBACK.md](FEEDBACK.md) |
 
 **Two things `kb_challenge_raise` enforces** (`kb-schema.md` §4.7):
 
@@ -1121,7 +1121,8 @@ Each phase carries an exit condition. A phase without one does not end.
 | Task | Exit condition |
 |---|---|
 | `kb/literature/` first entry | Every mandatory section of MS `_template.md` filled; merged into MS as a **pull request** |
-| `kb/08-retrieval/` | An oracle catches a regression: break a profile on purpose and **the test must fail** ([FEEDBACK.md](FEEDBACK.md) §5) |
+| `kb/08-retrieval/` — the write half | **Built 2026-09-15.** `kb_feedback` and `librarian/feedback.py`: one session per call, local and never committed, every rule in [FEEDBACK.md](FEEDBACK.md) executable rather than prose |
+| `kb/08-retrieval/` — the exit condition (**F9**) | **Not met, and it cannot be met by code alone.** An oracle catches a regression: break a profile on purpose and *the test must fail*. That needs an entry in `oracles/`, and the only route there is a human approving a promotion — so the first oracle waits on a real session reproduced under two index states and a person deciding its query text may be published, not on another module |
 
 ### Phase 4 — migration
 
