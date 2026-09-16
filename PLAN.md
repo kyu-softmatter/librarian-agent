@@ -1162,7 +1162,7 @@ Each phase carries an exit condition. A phase without one does not end.
 
 | Task | Exit condition |
 |---|---|
-| `kb/literature/` first entry | Every mandatory section of MS `_template.md` filled; merged into MS as a **pull request** |
+| `kb/literature/` first entry | Every mandatory section of MS `_template.md` filled; merged into MS as a **pull request**. **Drafted 2026-09-15** — `store/inbox/crosswalk/lifetime-ns-tritc.md`, for `TRITC > lifetime_ns` under **G20**, the one registry gap that is a published number. Every section is filled from the index at locators; the value, `citation`, `doi` and `filed_by` are left empty because supplying them is §6 Tier 2's forbidden move. **Not met until the operator fills those four and opens the pull request** |
 | `kb/08-retrieval/` — the write half | **Built 2026-09-15.** `kb_feedback` and `librarian/feedback.py`: one session per call, local and never committed, every rule in [FEEDBACK.md](FEEDBACK.md) executable rather than prose |
 | `kb/08-retrieval/` — the exit condition (**F9**) | **Met 2026-09-15.** `librarian/oracle.py` + `tests/test_oracle.py`. The first oracle came from two real sessions — the same citation recorded under `ms@196cdf1` and `ms@9f971a8`, reached by rolling the clone back and rebuilding — and from the operator supplying the two assertions no code can: that the result is an oracle, and that its query may be published. Breaking `ms:lens-4-sample-optics` then turns it red on the real corpus |
 

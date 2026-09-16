@@ -86,6 +86,10 @@ is read.
 
 ## `inbox/`
 
+```
+crosswalk/   MS-shaped drafts this repository produced and cannot finish
+```
+
 **Nothing leaves this folder without human approval.** The LLM refinement step
 emits citations and locators; it does not originate or summarize numbers, does
 not aggregate across entries, and never assigns `evidence: measured`.
