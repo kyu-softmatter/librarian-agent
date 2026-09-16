@@ -65,8 +65,13 @@ there is one, rather than failing:
 ```bash
 pip install -e .
 git clone --depth 1 https://github.com/kyu-softmatter/agentic-microscope.git cache/ms
-python -m librarian.cli reindex --repo ms
+git clone --depth 1 https://github.com/kyu-softmatter/Brownian-Dynamics-Agent.git cache/bd
+git clone --depth 1 https://github.com/kyu-softmatter/research-topic.git cache/rt
+python -m librarian.cli reindex --repo ms --repo bd --repo rt
 ```
+
+A rebuild is full, never incremental, so naming fewer repositories drops the
+rest from the index rather than leaving them alone.
 
 ## Transport and lifetime
 

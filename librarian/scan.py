@@ -40,6 +40,15 @@ CANDIDATES = {
                           and (p.suffix == ".md" or p.name == "benchmarks.yaml")],
     "bd_source": lambda r: sorted((r / "knowledge" / "source").rglob("*.md")),
     "bd_entries": lambda r: sorted((r / "knowledge" / "entries").glob("*.json")),
+    # rt is 8 files and no entries -- `kb-schema.md` says so of itself: *"no
+    # entries are created here. Only the shape is fixed."* So the candidates
+    # are the design documents themselves, and `design/ideas.md` is listed
+    # under `rt_ideas` because its unit is a table row with an ID, not a
+    # section.
+    "rt_ideas": lambda r: [r / "design" / "ideas.md"],
+    "rt_design": lambda r: [p for p in
+                            [r / "README.md", *sorted((r / "design").rglob("*.md"))]
+                            if p.is_file() and p.name != "ideas.md"],
 }
 
 

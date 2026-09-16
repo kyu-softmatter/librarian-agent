@@ -26,8 +26,9 @@ Decided 2026-09-06; the three rows citing §3.3–§3.5, 2026-09-09.
 | **Identity** | **The fourth axis.** Custody, retrieval and interaction for knowledge. Not `research-topic`'s J1 — that repo keeps **J2** (topic selection) and **J3** (the form of a pass condition) |
 | **Kind of thing** | **A server over a store, not a fourth conversational agent** → §3.3 |
 | **Callers** | the three agents' lenses and personas, **and people** — each under a named profile, everyone through their own MCP client → §3.5 |
+| **Sources** | **All three indexed** — `agentic-microscope`, `Brownian-Dynamics-Agent`, `research-topic`. 1,584 documents, one index → §1.4b |
 | **Where it runs** | **The microscope PC — all four systems, one machine** (decision 35). stdio, one process per session, and it stays correct through BD → §3.4 |
-| **v1** | **Librarian for the microscope agent only.** Then simulation (BD), then research (RT) |
+| **v1** | Drafted as *"the microscope agent only, then simulation, then research."* **All three are indexed as of 2026-09-15** — the adapters are additive, as §0.3 said they would be, so ingest ran ahead of the versioning rather than the versioning gating it |
 | **Data** | Structure first, verified second, migrated third → [BUILD.md](BUILD.md) · [MIGRATION.md](MIGRATION.md) |
 | **Visibility** | **public** — so `publish-gate` (§6.1) moves to Phase 0 |
 | **Weekly consolidation** | **Deferred.** Replaced for now by `index_stale` self-reporting → [BUILD.md](BUILD.md) §4-D |
@@ -226,6 +227,48 @@ first is a literature quantity and **BD holds no fluorophore data at all**: its
 field, not a published number. So the sharpest gap in the *system* and the
 first entry MS's folder can receive are not the same task, which this section
 had treated as one.
+
+### 1.4b What connecting rt actually bought — the citations resolve
+
+Added 2026-09-15. rt is eight files and 1,699 lines, and it holds **no entries
+at all** — `design/kb-schema.md` says so of itself: *"no entries are created
+here. Only the shape is fixed."* So the reason to index it is not volume.
+
+**It is that this repository cites rt's items as grounds and could not resolve
+one of them.** `C-001` for the self-confirming loop, `T-048` for what makes a
+challenge a work order rather than an argument, `Q-010` for the missing cost
+ceiling, `T-018` and `T-035` for *citations stay, attributions go*, `T-023` for
+recording a budget, `T-034` for the damping device, `C-005` for the vacated
+slot, `C-007` for the literature route. And §2's own claim: *"the prohibitions
+are inherited, not chosen. They come from the six philosophy items and the
+boundary table in research-topic."*
+
+Every one of those was an ID quoted in prose with nowhere to walk it back to —
+**in a repository whose first invariant is that a hit without coordinates is not
+returned.** The citation looked like rigour and was not checkable.
+
+`design/ideas.md`'s unit is a **table row with an ID**, not a section, so
+`adapters/rt_ideas.py` makes the ID the locator: `rt@sha:design/ideas.md#C-001`
+resolves through `kb_get`. `tests/test_rt.py` then scans this repository's own
+markdown for `T-`/`C-`/`Q-` citations and asserts each one is declared — so a
+future claim citing an item that does not exist fails the build rather than
+reading as grounds.
+
+**Two things in the parse were decided by the file rather than by preference.**
+
+Its own *"Rules for this document"* states that *"IDs from other repos carry a
+prefix: `BD:I-050` · `MS:G27`"*. `BD:I-052` appears in these cells constantly,
+and an adapter matching any `X-000` would file BD's ideas as rt's own — a
+citation that resolves, to the wrong repository, which is worse than one that
+does not resolve at all.
+
+And **six rows do not have the column count their own header declares.** Five
+conflict rows — `C-001`, `C-003`, `C-004`, `C-005`, `C-007` — are missing the
+pipe before their status, so `Open` trails the body cell; `T-054` has two stray
+pipes inside its body. Three of those five are among the items cited most here.
+The status is recovered from the vocabulary the file declares for itself, and
+from nothing else; a conflict whose status is unknown reads exactly like one
+nobody recorded.
 
 ### 1.5 The fourth convergence — enforceable at the transport layer
 
@@ -845,7 +888,14 @@ cannot demonstrate that. These two consume different corpora: lens 5 owns
 immersion media, coverslip thickness and medium refractive index.
 
 Later: `ms:lens-{3,6,8}` (v1, if useful) · `bd:s1`–`s8` · `bd:lit-*` and the
-`human:*` role profiles (v2, §3.5) · `rt:V1` · `rt:V2` (v3).
+`human:*` role profiles (v2, §3.5) · `rt:V1` · `rt:V2`.
+
+**rt's two personas are already in the index as agents**, keyed on their pole by
+`adapters/rt_design.py`, so a `rt:V1` profile reaches them through the same rows
+`profile_candidates` reads for MS's lenses — with the same citation and no new
+mechanism. What the profiles still need is the weighting, which is a judgment
+about a corpus rt has not filled yet: `kb-schema.md` says of itself that *"no
+entries are created here. Only the shape is fixed."*
 
 ### 5.2 Nine tools
 

@@ -18,6 +18,8 @@ from .ms_agents import ms_agents
 from .bd_wiki import bd_wiki
 from .bd_source import bd_source
 from .bd_entries import bd_entries
+from .rt_ideas import rt_ideas
+from .rt_design import rt_design
 
 ADAPTERS = {
     "ms_kb": ms_kb,
@@ -27,10 +29,13 @@ ADAPTERS = {
     "bd_wiki": bd_wiki,
     "bd_source": bd_source,
     "bd_entries": bd_entries,
+    "rt_ideas": rt_ideas,
+    "rt_design": rt_design,
 }
 
 __all__ = [
     "ADAPTERS",
     "ms_kb", "ms_data", "ms_docs", "ms_agents",
     "bd_wiki", "bd_source", "bd_entries",
+    "rt_ideas", "rt_design",
 ]

@@ -94,7 +94,7 @@ no session and no context window, which is why it can hold the store at all
 |---|---|---|---|
 | **1** | among the three agents | topics in falsifiable form and rigor-axis definitions outward; results, dead ends and open questions back | today |
 | **2** | librarian → research-topic | **the return path.** Results land in custody and topic selection reads them from here — which is why this repository is *inside* the loop rather than beside it | v3 |
-| **3** | agent → librarian | read-only ingest over `git fetch`. The commit sha becomes every hit's provenance, and no source repository is ever written | **ms v1** · bd v2 · rt v3 |
+| **3** | agent → librarian | read-only ingest over `git fetch`. The commit sha becomes every hit's provenance, and no source repository is ever written | **all three** |
 | **4** | librarian → agent | a challenge, routed by its falsifier's **type** and never by the sender: a measurement to ms, a run to bd, a condition of validity to rt, and none available to a person | **v1** — `kb_challenge_raise` |
 | **5** | librarian → caller | an answer — hits carrying `repo@sha:path#locator`, an evidence tier and `index_stale`, and never a number of its own | **v1** |
 | **6** | librarian → repository | `export/`, a generated read-only copy, so a lens that declares only `Read, Grep, Glob` keeps working offline | MIGRATION Step 3 |
@@ -102,9 +102,12 @@ no session and no context window, which is why it can hold the store at all
 **Edge 4 is the only one that runs against the direction of ingest,** and it is
 what makes custody include retirement rather than accumulation: a falsifier is a
 work order nobody has run yet, and the librarian hands it to whoever can run it
-instead of settling it itself. Research-topic's own two edges (3 and 4) are left
-out of the picture rather than out of the design — they arrive in v3, and drawing
-them now would cost the legibility of the three that exist.
+instead of settling it itself. Research-topic's own edge 3 exists now —
+its eight design files are indexed, which is what made every `T-0xx` and
+`C-0xx` cited as grounds in this repository resolve to a locator for the first
+time. Its edge 4 is drawn out of the picture rather than out of the design: a
+challenge routed there resolves on someone reading a paper, which is `C-007`
+and rt's own largest unclosed item.
 
 | | Owns | Does not |
 |---|---|---|
@@ -141,26 +144,28 @@ Three of those constraints shape everything here:
 
 ## v1 — what is built
 
-Seven read tools and two writes. Measured 2026-09-15 against
-`agentic-microscope` @ `9f971a8`
-and `Brownian-Dynamics-Agent` @ `a18e171` — **the command that computes each row
-is below the table**, because every figure here has already gone stale once:
+Seven read tools and two writes, over **all three** source repositories.
+Measured 2026-09-15 against `agentic-microscope` @ `9f971a8`,
+`Brownian-Dynamics-Agent` @ `a18e171` and `research-topic` @ `3450901` — **the
+command that computes each row is below the table**, because every figure here
+has already gone stale once:
 
 | | |
 |---|---|
-| Documents indexed | **1,446** — 626 from the microscope, 820 from the simulator, every candidate file accounted for |
-| Cross-references | **557** — 437 indexed · 91 present but unindexed · 29 broken |
+| Documents indexed | **1,584** — 626 from the microscope, 820 from the simulator, 138 from research-topic, every candidate file accounted for |
+| Cross-references | **686** — 563 indexed · 94 present but unindexed · 29 broken |
 | Registry coverage rows | **25** |
 | Drift and defect findings | **34** |
-| Tests | **189**, 155 of them offline |
+| Tests | **203**, 155 of them offline |
 
 ```bash
 pip install -e ".[dev]"
 git clone --depth 1 https://github.com/kyu-softmatter/agentic-microscope.git cache/ms
 git clone --depth 1 https://github.com/kyu-softmatter/Brownian-Dynamics-Agent.git cache/bd
+git clone --depth 1 https://github.com/kyu-softmatter/research-topic.git cache/rt
 
-# Both repos in one command. `--repo ms` alone rebuilds in full and drops bd.
-python -m librarian.cli reindex --repo ms --repo bd
+# All three in one command. A rebuild is full, so naming fewer drops the rest.
+python -m librarian.cli reindex --repo ms --repo bd --repo rt
 
 python -m librarian.cli search "what limits how long I can image this dye" \
     --profile ms:lens-5-photo-perturbation
@@ -397,10 +402,22 @@ None of these was read off a sentence that says so.
 
 ### v3 — research-topic
 
-The `challenge/` entry kind across all three repositories, and the literature
-route's weak resolver: this repository may settle only whether a cited locator
-exists and states the condition, and returns `unknown` otherwise. That is
-checkable, and it answers a weaker question than the challenge asked.
+**Indexed.** Eight design files, 138 documents — and 65 of them are one table:
+`design/ideas.md`'s item log, where the unit is a row with an ID. `rt_ideas`
+makes that ID the locator, so `C-001` is
+`rt@sha:design/ideas.md#C-001`. **That is the point of connecting it.** This
+repository's prohibitions are stated to be *"inherited, not chosen ... from the
+six philosophy items and the boundary table in research-topic"*, and it cites
+`C-001`, `T-048`, `Q-010`, `T-035` as grounds throughout — none of which
+resolved until now, in a repository whose first invariant is that every value is
+walkable back to a location. `tests/test_rt.py` asserts every such citation
+still resolves.
+
+What remains v3 is the **`challenge/` entry kind across all three repositories**
+and the literature route's weak resolver: this repository may settle only
+whether a cited locator exists, and returns `unknown` otherwise. That is
+checkable, and it answers a weaker question than the challenge asked — rt
+records the route as `C-007` and did not adopt the escape.
 
 ### Migration, when the tools are trusted
 

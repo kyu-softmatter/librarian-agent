@@ -27,8 +27,9 @@ ROOT = Path(__file__).resolve().parent.parent
 NAME = "librarian"
 
 INSTRUCTIONS = """\
-One indexed knowledge base over the microscope repository, with retrieval
-profiled per calling agent. Seven tools read; two write, and only into this
+One indexed knowledge base over all three source repositories -- the
+microscope, the simulator and research-topic -- with retrieval profiled per
+calling agent. Seven tools read; two write, and only into this
 repository. **Nothing here writes to any source repository, ever** -- anything
 that has to land there arrives as a pull request.
 

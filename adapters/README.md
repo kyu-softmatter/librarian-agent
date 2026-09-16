@@ -18,7 +18,8 @@ Hard-code a path and the next folder rename produces a silently empty read.
 | BD `source/` | the same contract's `source_frontmatter_*` and `source_kinds` | ✅ |
 | BD `entries/` | `bdbot.kb_entry/0.1`, decomposed over `lessons[]` | ✅ |
 | BD `runs/` | `bdbot.record/0.1` — index only, never migrated | v2 |
-| RT `design/` | `kb-schema.md` §4.1-4.7 | v3 |
+| RT `design/ideas.md` | the item log's own *"Rules for this document"* — one document per `T-`/`C-`/`Q-` id, **and the ID is the locator** | ✅ |
+| RT `README.md` + `design/` | section anchors; `personas/V[12]-*.md` as agents, keyed on the pole | ✅ |
 
 **A source name is prefixed with the repository it parses**, and
 `librarian.scan.sources_for` selects on that prefix. Without the convention a
@@ -42,7 +43,17 @@ Measured 2026-09-15 against `agentic-microscope` @ `9f971a8` and
 | `bd_source` | 45 | 273 |
 | `bd_entries` | 145 | 145 |
 | **bd** | **239** | **820** |
-| **one index** | **313** | **1446** |
+| `rt_ideas` | 1 | 76 |
+| `rt_design` | 7 | 62 |
+| **rt** | **8** | **138** |
+| **one index** | **321** | **1584** |
+
+**rt is 8 files and 138 documents, and 65 of those are one table.** Its
+`design/ideas.md` is the item log this repository cites as grounds throughout,
+and the unit there is a **table row with an ID** rather than a section — so
+`rt_ideas` makes the ID the locator, and `C-001` is `rt@sha:design/ideas.md#C-001`.
+Until that existed, every `T-0xx` and `C-0xx` in this repository's own design
+documents was a citation with nowhere to walk back to.
 
 **63 of `ms_kb`'s 72 new documents come from two stores MS added and this
 adapter did not know**: `kb/plans/` (29) and `kb/sessions/` (34). The rest are
@@ -50,8 +61,8 @@ entries upstream added to stores already covered. Both new stores were being
 skipped in silence until the coverage check named their files, which is that
 check earning its keep rather than a clean result.
 
-    python -m librarian.cli scan    --repo ms
-    python -m librarian.cli reindex --repo ms --repo bd
+    python -m librarian.cli scan    --repo rt
+    python -m librarian.cli reindex --repo ms --repo bd --repo rt
 
 > **These figures move when a source repository does, and they already have.**
 > This table read *59 files, 544 documents* against `ms@196cdf1` while the
