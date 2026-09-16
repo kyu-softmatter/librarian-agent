@@ -5,6 +5,8 @@ defects a human found by hand**. A tool that cannot find those is not yet doing
 anything, so they are asserted rather than described.
 """
 
+import re
+
 import pytest
 
 from librarian.drift import drift
@@ -201,7 +203,22 @@ def test_bd_index_defects_are_rediscovered(bd):
     assert "declared_count_mismatch" in checks
 
     detail = next(f.detail for f in findings if f.check == "declared_count_mismatch")
-    assert "40" in detail and "42" in detail
+
+    # **The defect, not the two integers.** This read `"40" in detail and "42"
+    # in detail`, and went red on 2026-09-16 when BD added a paper: the
+    # `INDEX.md` still states 40 and the siblings went 42 -> 43. That is the
+    # finding getting *worse*, which is the detector working -- and a test that
+    # fails whenever the source repository gains a file is a test of BD's
+    # activity, not of this tool.
+    #
+    # What stays pinned is the shape and the direction: a declared count, a real
+    # count, and the declared one behind. `40` is still asserted because it is
+    # **this repository's founding case** -- a generated file whose generator is
+    # gone, frozen at the number it had when the generator last ran. The day it
+    # is regenerated, the number moves and this test should be read again.
+    declared, actual = (int(n) for n in re.findall(r"\d+", detail)[:2])
+    assert declared == 40, f"INDEX.md's declared count moved: {detail}"
+    assert actual > declared, f"the mismatch closed on its own: {detail}"
 
     gen = next(f.detail for f in findings if f.check == "generator_missing")
     assert "docs/tools/wiki_index.py" in gen
