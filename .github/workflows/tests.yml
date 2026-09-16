@@ -6,10 +6,18 @@
 #                moved** -- which is information rather than a defect here, so
 #                it does not fail the build.
 #
-# The split is deliberate. The integration tests assert facts about the
-# microscope at the commit they were written against: that G2 is still
-# unimplemented, that seven wikilinks still dangle. When one stops holding,
-# someone should look at it; it should not block a change to this repository.
+# The split is deliberate. The integration tests assert facts about the source
+# repositories at the commit they were written against: that G2 is still
+# untraceable to code, that a profile boosts no dead gate, that every rt item
+# this repository cites is still declared. When one stops holding, someone
+# should look at it; it should not block a change to this repository.
+#
+# **All three clones happen in the integration job, and no test there may skip
+# itself.** A skip is the right behaviour locally, where someone may hold one
+# clone and not another. Here every clone is present by construction, so a skip
+# means a test did not run while the tick said it did. That is not theoretical:
+# rt's tests skipped silently for one run because this file cloned two
+# repositories and not three.
 
 name: tests
 
@@ -54,18 +62,38 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/kyu-softmatter/agentic-microscope.git cache/ms
           git clone --depth 1 https://github.com/kyu-softmatter/Brownian-Dynamics-Agent.git cache/bd
+          git clone --depth 1 https://github.com/kyu-softmatter/research-topic.git cache/rt
           git -C cache/ms rev-parse --short HEAD
           git -C cache/bd rev-parse --short HEAD
+          git -C cache/rt rev-parse --short HEAD
 
-      - name: pytest, everything
-        run: python -m pytest -q
+      # `-rs` prints the reason for every skip, and the grep is the guard on it.
+      #
+      # **An integration test skipping itself is right locally and wrong here.**
+      # Locally someone may hold one clone and not another, so a test that
+      # needs `cache/rt` announces the dependency instead of turning an absent
+      # checkout into a red build. In this job every clone is present by
+      # construction -- so a skip means the test did not run while the tick
+      # said it did, which is the unwired-checker failure this repository is
+      # named after. It happened: rt's tests skipped silently for one run,
+      # because the step above cloned two repositories and not three.
+      - name: pytest, everything -- and no test may skip itself
+        run: |
+          set -o pipefail
+          python -m pytest -q -rs | tee /tmp/pytest.txt
+          if grep -qE "[0-9]+ skipped" /tmp/pytest.txt; then
+            echo "::error::a test skipped itself in a job where every clone is present"
+            exit 1
+          fi
 
+      # Over all three, because a rebuild is full: naming fewer drops the rest,
+      # so the criterion has to be checked on the index that actually ships.
       - name: the index rebuilds byte-identically
         run: |
-          python -m librarian.cli reindex --repo ms
+          python -m librarian.cli reindex --repo ms --repo bd --repo rt
           A=$(sha256sum index/kb.sqlite | cut -d' ' -f1)
           rm -rf index map/manifest.json
-          python -m librarian.cli reindex --repo ms
+          python -m librarian.cli reindex --repo ms --repo bd --repo rt
           B=$(sha256sum index/kb.sqlite | cut -d' ' -f1)
           echo "$A"; echo "$B"
           test "$A" = "$B"
@@ -75,5 +103,6 @@ jobs:
       - name: drift report
         continue-on-error: true
         run: |
-          python -m librarian.cli drift --repo ms --repo bd
+          python -m librarian.cli drift --repo ms --repo bd --repo rt
           python -m librarian.cli gaps --missing-only
+          python -m librarian.cli oracles
