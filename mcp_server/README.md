@@ -1,9 +1,10 @@
 # `mcp_server/` — the MCP server
 
-**Seven read tools and one write.** `kb_feedback` appends a retrieval session;
-`kb_challenge_raise` is the second write tool and is not here yet. **Writes touch
-`kb/` and `store/` only** — nothing in a source repository is written, ever;
-anything that has to land there arrives as a pull request.
+**Seven read tools and two writes** — the whole surface PLAN.md §5.2 declares.
+**Writes touch `kb/` and `store/` only**: nothing in a source repository is
+written, ever, and anything that has to land there arrives as a pull request. A
+challenge is *handed to* whoever can run the falsifier; it is not applied to
+their files.
 
 | Tool | Purpose |
 |---|---|
@@ -14,7 +15,7 @@ anything that has to land there arrives as a pull request.
 | `kb_supplies` | what supplies a registry field or a gate |
 | `kb_gaps` | gates `BLOCKED` for want of an input — **v1's primary product**. Built: `librarian/gaps.py` |
 | `kb_stale` | the drift report. Built: `librarian/drift.py` |
-| `kb_challenge_raise` | writes `store/challenge/`, routes by falsifier type |
+| `kb_challenge_raise` | **writes.** Doubt against a claim, routed by the type of the falsifier it cites — never by who raised it. Built: `librarian/challenge.py` |
 | `kb_feedback` | **writes.** One retrieval session — which hits were actually cited. Local and never committed. Built: `librarian/feedback.py` |
 
 ## Why the folder is not called `mcp/`
@@ -110,16 +111,35 @@ returning quoted text with coordinates. That holds wherever it runs, which is
 why the host correction above changed nothing in this paragraph
 → [../PLAN.md](../PLAN.md) §3.5.
 
+## A challenge is a work order, not an argument
+
+`kb_challenge_raise` routes by **the type of the falsifier it cites** — a
+measurement to the microscope, a run to the simulator, an unchecked condition of
+validity to research-topic, and none available to a person. Never by who raised
+it: `raised_by` is recorded and no code reads it.
+
+Two refusals carry the weight, and both look like the tool failing:
+
+- **A citation outside the target's own file.** `falsifier_cited` has to point
+  into the claim being doubted. Citing a new basis instead is `T-048`'s
+  prohibited move, and it puts a mass of counter-argument back in the slot rt
+  emptied on purpose.
+- **An entry carrying no falsification condition cannot be challenged at all.**
+  That is a **defect in the entry** — every judgment is supposed to carry the
+  check that would overturn it — and the fix is a pull request against the
+  repository holding it, not a workaround here. `kb_stale` reports the same
+  entries as defects.
+
+On the `literature` route this server settles one thing: whether the cited
+locator exists. The verdict stays `unknown`, because resolving it means someone
+reading a paper, which is what `I-052` forbids of a gate. rt records that route
+as `C-007`, considered this exact escape and did **not** adopt it; it is adopted
+here because it is deterministic and answers a weaker question than the
+challenge asked.
+
 ## What is not here
 
-`kb_challenge_raise` is the other half of the write surface, and what it waits
-on is not a policy: a challenge routes by **the type of the falsifier it
-cites** — a measurement to the microscope, a run to the simulator, an unchecked
-condition of validity to research-topic — which makes it the retirement
-mechanism rather than a write path, and `falsifier_cited` has to point **into
-the target** for that routing to mean anything.
-
-**And promotion is not here either.** `sessions/ → oracles/` is human-approved
+**Promotion.** `sessions/ → oracles/` is human-approved
 and deliberately not a tool: an agent promoting its own retrieval results to
 ground truth is a self-confirming loop, and the approval is the only damping on
 it. `python -m librarian.cli sessions` is the view that approval is given

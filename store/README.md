@@ -27,10 +27,35 @@ refused.
 | used outside the scope it stated | none available | **a human** |
 
 `upheld` / `rejected` is set by what a run, a measurement or a search returned —
-**never by a vote**, and `not_run` is the default.
+**never by a vote** (BD `I-052`).
+
+> **This said `not_run` is the default, and there is no such state.** rt's
+> `state` vocabulary is `raised · routed · declined · running · upheld ·
+> rejected · unknown` (`kb-schema.md` §4.7), and `not_run` was drift between
+> this file and the schema it describes rather than a third value. Corrected
+> 2026-09-15 while building `kb_challenge_raise`; `librarian/challenge.py`
+> carries rt's list verbatim.
+>
+> **A challenge written here is `routed`, and `raised` is unreachable.**
+> Routing is a lookup on `doubt_kind` that completes before the record exists,
+> so there is no moment at which a challenge has a target and no route — one
+> fewer state that could be stale. `raised` stays in the vocabulary because
+> rt's schema owns it and another writer may need it.
 
 **Librarian may settle only one thing:** for the literature route, whether the
-cited locator exists and states the condition. Everything else returns `unknown`.
+cited locator exists. Everything else returns `unknown` — and rt records that
+route as `C-007`, *"the largest unclosed item in this document"*, having
+considered this exact escape and **not** adopted it. Adopted here, because it
+keeps the gate deterministic and answers a weaker question than the challenge
+asked.
+
+**`depth` and `cost` are the bound** (`T-049`). A challenge against a challenge
+increments `depth`, and past `MAX_AUTOMATIC_DEPTH` it goes to a person whatever
+its doubt kind — escalation rather than refusal, because a refusal loses the
+challenge. The bound is **this repository's, and narrower than rt has
+specified**: `Q-010` records that a challenge has no cost ceiling and no
+declined-forever state, and leaves both open. What is chosen here is a finite
+bound, not a correct one.
 
 ## How a record is written
 

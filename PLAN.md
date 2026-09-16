@@ -810,7 +810,7 @@ these before it becomes a tenth tool.
 | ✅ `kb_supplies` | `(field \| gate)` | what supplies that registry field, or what a gate waits for — the same question from either end. **`bleach_photons` × G10 returns `blocked`** |
 | `kb_gaps` | `(caller_profile)` | gates `BLOCKED` for want of an input · registry fields still empty · `has_falsifier = 0` entries. **v1's primary product** (§0.2①) |
 | ✅ `kb_stale` | `()` | staleness **and** the §4.3 drift report, both stored in the index at build time so the server needs the index and nothing else |
-| `kb_challenge_raise` | `(target_uid, doubt_kind, falsifier_cited, …)` | writes `store/challenge/` and **routes by falsifier type**. Refused without `falsifier_cited` |
+| ✅ `kb_challenge_raise` | `(target_uid, doubt_kind, falsifier_cited, caller_profile?, note?, gpu_hours?, instrument_hours?, search_budget_spent?, in_reply_to?)` | writes `store/challenge/` and **routes by falsifier type**. `falsifier_cited` is mandatory *and* must share the target's file — a citation elsewhere is `T-048`'s prohibited move. `routed_to`, `resolvable_by`, `state`, `raised_by` and `depth` are **derived, not parameters**, because a caller that could set them would be routing by the sender |
 | ✅ `kb_feedback` | `(query, caller_profile, verdict, returned?, cited?, missing?, asked_by?, action?, note?)` | writes one session to `kb/08-retrieval/sessions/`, local and never committed. `index_sha`, `index_stale` and the id are **derived, not parameters**. Refuses `not_searched` — that is the default of a query nobody recorded, and the call is the record that someone looked. Returns `promotion_status`, which promotes nothing → [FEEDBACK.md](FEEDBACK.md) |
 
 **Two things `kb_challenge_raise` enforces** (`kb-schema.md` §4.7):
@@ -1113,7 +1113,7 @@ Each phase carries an exit condition. A phase without one does not end.
 |---|---|
 | `librarian reindex` + `index_stale` | A stale index cannot answer silently; `--strict` refuses |
 | Regeneration | Delete `index/` and `map/` entirely, rebuild, **byte-identical** |
-| ID issuance | `kb-schema.md` §6's *"who issues entry IDs — sequential numbers collide under parallel writes"* → **content-hash**, inheriting BD's `run_id` approach |
+| ID issuance | `kb-schema.md` §6's *"who issues entry IDs — sequential numbers collide under parallel writes"* → **content-hash**, inheriting BD's `run_id` approach. **Done** — `librarian/record.py` names every record by a sha256 of its own content, and `ret-`/`chal-` ids are read off the filename rather than stored inside it (§3.7) |
 | `publish-gate` (§6.1) | A write of unpublished content to a public path is blocked, **proved by a test** |
 
 ### Phase 3 — the first entry, and feedback

@@ -4,14 +4,15 @@
 
 Launched by an MCP client, normally through `.mcp.json` in the repository root.
 
-**Seven read tools and one write.** `kb_feedback` appends a retrieval session to
-`kb/08-retrieval/sessions/`, which is local and permanently gitignored -- the
-publish-gate scope that blocked it is settled (PLAN.md §6.1, decision 37).
-Nothing in any source repository is written, ever.
+**Seven read tools and two writes**, which is the whole surface PLAN.md §5.2
+declares. `kb_feedback` appends a retrieval session to
+`kb/08-retrieval/sessions/`, local and permanently gitignored (decision 37).
+`kb_challenge_raise` writes `store/challenge/` and routes by the type of the
+falsifier cited -- the retirement half of custody, and the one edge that runs
+against the direction of ingest.
 
-Still absent: `kb_challenge_raise`. It has to route by the type of the
-falsifier it cites, and that routing is the retirement mechanism rather than a
-write path.
+Nothing in any source repository is written, ever. A challenge is handed to
+whoever can run the falsifier; it is not applied to their files.
 """
 
 from __future__ import annotations
@@ -27,9 +28,9 @@ NAME = "librarian"
 
 INSTRUCTIONS = """\
 One indexed knowledge base over the microscope repository, with retrieval
-profiled per calling agent. Seven tools read; `kb_feedback` writes one local,
-uncommitted record. **Nothing here writes to any source repository, ever** --
-anything that has to land there arrives as a pull request.
+profiled per calling agent. Seven tools read; two write, and only into this
+repository. **Nothing here writes to any source repository, ever** -- anything
+that has to land there arrives as a pull request.
 
 Four things about the results, each of which looks like a failure and is not.
 
@@ -67,8 +68,18 @@ is never inferred from what you were sent: inferred, it stops being a fact.
 Recording nothing leaves the query at `not_searched`, which means *this was
 never checked* rather than *it was fine*.
 
-This server originates no numbers. Every value it returns is quoted from a file
-with its location attached.
+**A challenge is a work order, not an argument.** `kb_challenge_raise` requires
+`falsifier_cited` and requires it to point into the target's own file -- the
+claim's own falsification condition, by locator. Citing a new basis instead is
+refused. Routing is decided by the falsifier's type and never by who raised it,
+and an entry carrying no falsifier cannot be challenged at all: that is a
+defect in the entry, since every judgment is supposed to carry the check that
+would overturn it.
+
+This server originates no numbers, and it settles nothing. Every value it
+returns is quoted from a file with its location attached, and a verdict of
+`upheld` or `rejected` comes from what a run, a measurement or a search
+returned -- never from a vote.
 """
 
 
@@ -81,6 +92,7 @@ def build() -> MCPServer:
         profiles_dir=ROOT / "profiles",
         cache_dir=ROOT / "cache",
         sessions_dir=ROOT / "kb" / "08-retrieval" / "sessions",
+        challenge_dir=ROOT / "store" / "challenge",
     )
     return server
 

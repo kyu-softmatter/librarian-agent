@@ -58,6 +58,26 @@ VERDICT_NOTE = (
     "accepted here."
 )
 
+DOUBT_KINDS_NOTE = (
+    "superseded_by_measurement (-> ms) | contradicted_by_run (-> bd) | "
+    "conditions_not_met (-> research-topic) | scope_exceeded (-> a human) | "
+    "never_verified (-> a human, because it names no falsifier). The doubt kind "
+    "is what routes the challenge, so it cannot be free text."
+)
+
+ROUTING_NOTE = (
+    "`routed_to` is decided by the falsifier's type and by nothing else -- not "
+    "by who raised it, and not by what the answer would turn out to be. "
+    "`raised_by` is recorded and no code reads it."
+)
+
+LITERATURE_NOTE = (
+    "On the `literature` route this server settles one thing only: whether the "
+    "cited locator exists. The verdict stays `unknown`, because resolving it "
+    "means someone reading the paper, which is not something a gate may do. "
+    "rt records this as `C-007`, the largest unclosed item in its schema."
+)
+
 TIER_NOTE = (
     "Every hit carries `evidence` and `advances`. `advances: false` means that "
     "tier cannot advance a verdict -- a literature value never can, by rule. "
@@ -75,7 +95,8 @@ def _today() -> str:
 
 def register(server, index_path: Path, profiles_dir: Path,
              cache_dir: Optional[Path] = None,
-             sessions_dir: Optional[Path] = None) -> None:
+             sessions_dir: Optional[Path] = None,
+             challenge_dir: Optional[Path] = None) -> None:
     read_only = ToolAnnotations(read_only_hint=True, destructive_hint=False)
     # `kb_feedback` writes, and the annotation has to say so or a client will
     # treat it as safe to retry and to call speculatively. It is not
@@ -410,5 +431,105 @@ def register(server, index_path: Path, profiles_dir: Path,
                     sessions_dir, query, caller_profile),
                 "notes": [LOCAL_ONLY_NOTE, PROMOTION_NOTE],
             }
+        finally:
+            idx.close()
+
+    @server.tool(annotations=appends)
+    def kb_challenge_raise(target_uid: str, doubt_kind: str,
+                           falsifier_cited: str,
+                           caller_profile: str = "neutral",
+                           note: Optional[str] = None,
+                           gpu_hours: float = 0, instrument_hours: float = 0,
+                           search_budget_spent: float = 0,
+                           in_reply_to: Optional[str] = None) -> dict[str, Any]:
+        """Raise a doubt against a claim, as a work order. **This writes.**
+
+        **`falsifier_cited` is mandatory and must point into the target's own
+        file** -- the target's own falsification condition, by locator. That is
+        what makes this a work order rather than an argument, and a citation
+        landing anywhere else is refused: a challenge may not cite a new basis.
+
+        `doubt_kind` is what routes the challenge, and nothing else does --
+        not who raised it:
+
+          `superseded_by_measurement`  the published number does not transfer
+                                       to this setup      -> ms
+          `contradicted_by_run`        the claim is contradicted by what the
+                                       model does         -> bd
+          `conditions_not_met`         the conditions of validity were never
+                                       checked            -> research-topic
+          `scope_exceeded`             used outside the scope it stated
+                                                          -> a human
+          `never_verified`             names no falsifier at all -> a human,
+                                       who can re-raise it with one that does
+
+        **An entry carrying no falsification condition cannot be challenged.**
+        That is a defect in the entry, not a limit here: every judgment is
+        supposed to carry the check that would overturn it. The fix is a pull
+        request against the repository that holds it.
+
+        `depth` increments against `in_reply_to`, and past the bound a
+        challenge goes to a person whatever its doubt kind. Unbounded, doubt
+        circulates instead of resolving. Record `gpu_hours`,
+        `instrument_hours` and `search_budget_spent` honestly: unrecorded, the
+        budget stops being a budget and becomes the retirement decision.
+
+        Nothing here settles anything. `state` is `routed`, `resolved_by` is
+        null, and `upheld`/`rejected` is set later by what a run, a measurement
+        or a search returned -- never by a vote.
+        """
+        if challenge_dir is None:
+            return {"status": "no_challenge_store",
+                    "detail": "this server was registered without a challenge "
+                              "directory, so it has nowhere to write."}
+        idx = _open()
+        if idx is None:
+            return NO_INDEX
+        try:
+            from librarian.challenge import (ChallengeError, challenge,
+                                             depth_of, open_against, record_id,
+                                             write)
+            target = idx.get(target_uid)
+            try:
+                rec = challenge(
+                    target_uid=target_uid, doubt_kind=doubt_kind,
+                    falsifier_cited=falsifier_cited,
+                    caller_profile=caller_profile, note=note,
+                    cost={"gpu_hours": gpu_hours,
+                          "instrument_hours": instrument_hours,
+                          "search_budget_spent": search_budget_spent},
+                    in_reply_to=in_reply_to,
+                    target=target,
+                    falsifier_exists=idx.get(falsifier_cited) is not None,
+                    prior_depth=(depth_of(challenge_dir, in_reply_to)
+                                 if in_reply_to else None),
+                )
+            except ChallengeError as e:
+                return {"status": "refused", "detail": str(e),
+                        "doubt_kinds": DOUBT_KINDS_NOTE}
+            standing = open_against(challenge_dir, target_uid)
+            written = write(challenge_dir, rec, _today())
+            out = {
+                "status": "ok",
+                "id": record_id(written),
+                "created": written.created,
+                "path": str(written.path),
+                "target": rec["target"],
+                "routed_to": rec["routed_to"],
+                "resolvable_by": rec["resolvable_by"],
+                "state": rec["state"],
+                "depth": rec["depth"],
+                "already_standing": [r.get("doubt_kind") for r in standing],
+                "notes": [ROUTING_NOTE],
+            }
+            if rec["resolvable_by"] == "literature":
+                # The one thing this repository settles, and it answers a
+                # weaker question than the challenge asked.
+                out["locator_exists"] = True
+                out["verdict"] = "unknown"
+                out["notes"].append(LITERATURE_NOTE)
+            if "escalated_at_depth" in rec:
+                out["escalated_at_depth"] = rec["escalated_at_depth"]
+            return out
         finally:
             idx.close()

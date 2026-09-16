@@ -9,7 +9,7 @@ from librarian.index import build
 
 READ_TOOLS = {"kb_search", "kb_get", "kb_neighbors", "kb_supplies", "kb_gaps",
               "kb_stale", "kb_inputs"}
-WRITE_TOOLS = {"kb_feedback"}
+WRITE_TOOLS = {"kb_feedback", "kb_challenge_raise"}
 TOOLS = READ_TOOLS | WRITE_TOOLS
 
 
@@ -52,14 +52,17 @@ def test_the_declared_tools_are_the_registered_tools():
     assert {t.name for t in asyncio.run(s.list_tools())} == TOOLS
 
 
-def test_exactly_one_tool_writes_and_it_says_so():
+def test_which_tools_write_is_declared_and_not_discovered():
     """The annotation is how a client knows before calling, not after.
 
     Asserted as a **partition** rather than as "everything is read-only",
     which is what this said while nothing wrote. Stated that way it would have
     had to be deleted the moment a write tool landed -- and a test deleted to
-    make room for a change stops guarding the thing it was for. Now adding a
-    second write tool fails here until it is declared.
+    make room for a change stops guarding the thing it was for.
+
+    It then did its job: adding `kb_challenge_raise` failed here until the tool
+    was listed, which is the one place a write reaching the surface
+    undeclared would have been caught.
     """
     from mcp_server.server import build as build_server
     listed = {t.name: t.annotations for t in asyncio.run(build_server().list_tools())}
@@ -89,7 +92,8 @@ def test_a_missing_index_is_a_status_not_a_crash(tmp_path):
                    # Given a real directory on purpose: without one
                    # `kb_feedback` answers `no_session_store` and never reaches
                    # the index, which would make it pass this test vacuously.
-                   sessions_dir=tmp_path / "sessions")
+                   sessions_dir=tmp_path / "sessions",
+                   challenge_dir=tmp_path / "challenge")
     for name in sorted(TOOLS - {"kb_inputs"}):   # kb_inputs reports a missing
         # checkout before it reaches the index, so it has its own case below
         args = {"question": "x"} if name == "kb_search" else {}
@@ -102,11 +106,16 @@ def test_a_missing_index_is_a_status_not_a_crash(tmp_path):
         if name == "kb_feedback":
             args = {"query": "x", "caller_profile": "neutral",
                     "verdict": "no_result"}
+        if name == "kb_challenge_raise":
+            args = {"target_uid": "ms:kb/expertise/a.md#verdict",
+                    "doubt_kind": "scope_exceeded",
+                    "falsifier_cited": "ms:kb/expertise/a.md#falsification"}
         out = _call(s, name, args)
         assert out["status"] == "no_index", name
         assert "reindex" in out["detail"]
     # And nothing was written while there was no index to record against.
     assert not (tmp_path / "sessions").exists()
+    assert not (tmp_path / "challenge").exists()
 
 
 def test_kb_search_reports_an_unknown_profile_rather_than_guessing(server):

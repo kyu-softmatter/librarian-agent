@@ -95,7 +95,7 @@ no session and no context window, which is why it can hold the store at all
 | **1** | among the three agents | topics in falsifiable form and rigor-axis definitions outward; results, dead ends and open questions back | today |
 | **2** | librarian → research-topic | **the return path.** Results land in custody and topic selection reads them from here — which is why this repository is *inside* the loop rather than beside it | v3 |
 | **3** | agent → librarian | read-only ingest over `git fetch`. The commit sha becomes every hit's provenance, and no source repository is ever written | **ms v1** · bd v2 · rt v3 |
-| **4** | librarian → agent | a challenge, routed by its falsifier's **type** and never by the sender: a measurement to ms, a run to bd, a condition of validity to rt, and none available to a person | within ms, v1 |
+| **4** | librarian → agent | a challenge, routed by its falsifier's **type** and never by the sender: a measurement to ms, a run to bd, a condition of validity to rt, and none available to a person | **v1** — `kb_challenge_raise` |
 | **5** | librarian → caller | an answer — hits carrying `repo@sha:path#locator`, an evidence tier and `index_stale`, and never a number of its own | **v1** |
 | **6** | librarian → repository | `export/`, a generated read-only copy, so a lens that declares only `Read, Grep, Glob` keeps working offline | MIGRATION Step 3 |
 
@@ -141,7 +141,7 @@ Three of those constraints shape everything here:
 
 ## v1 — what is built
 
-Seven read tools and one write. Measured 2026-09-15 against
+Seven read tools and two writes. Measured 2026-09-15 against
 `agentic-microscope` @ `9f971a8`
 and `Brownian-Dynamics-Agent` @ `a18e171` — **the command that computes each row
 is below the table**, because every figure here has already gone stale once:
@@ -152,7 +152,7 @@ is below the table**, because every figure here has already gone stale once:
 | Cross-references | **557** — 437 indexed · 91 present but unindexed · 29 broken |
 | Registry coverage rows | **25** |
 | Drift and defect findings | **34** |
-| Tests | **159**, 127 of them offline |
+| Tests | **178**, 146 of them offline |
 
 ```bash
 pip install -e ".[dev]"
@@ -171,10 +171,12 @@ python -m librarian.cli drift --repo ms
 python -m pytest
 ```
 
-### The eight tools
+### The nine tools
 
 Registered through [`.mcp.json`](.mcp.json) as `python -m mcp_server.server`.
-Seven are annotated read-only. **Nothing writes to any source repository, ever.**
+Seven are annotated read-only. **Nothing writes to any source repository,
+ever** — a challenge is handed to whoever can run the falsifier, not applied to
+their files.
 
 | Tool | Answers |
 |---|---|
@@ -186,6 +188,7 @@ Seven are annotated read-only. **Nothing writes to any source repository, ever.*
 | `kb_gaps` | which gate is `BLOCKED`, for want of which input |
 | `kb_stale` | whether the index is behind, and whether what is declared still matches what exists |
 | `kb_feedback` | **writes.** Which hits a search was actually answered with — one local, uncommitted session |
+| `kb_challenge_raise` | **writes.** Doubt against a claim, routed by the type of the falsifier it cites |
 
 **`kb_feedback` is the only one that writes, and what it records is a fact.**
 Not *"the answer was good"* — a judgment, and unstorable — but *"these are the
@@ -199,6 +202,14 @@ and for the other in `kb/`.
 It also refuses `not_searched`, which is the default of a query nobody
 recorded — *this was never checked*, rather than *it was fine*. Calling the
 tool is the record that someone looked, so it cannot be the verdict.
+
+**And `kb_challenge_raise` is the edge that runs against ingest.** A challenge
+is a work order nobody has run yet, routed by the **type** of the falsifier it
+cites and never by who sent it. `falsifier_cited` is mandatory and has to point
+into the target's own file: citing a new basis instead turns a work order back
+into an argument. An entry carrying no falsifier cannot be challenged at all —
+a defect in the entry, since every judgment is supposed to carry the check that
+would overturn it, and the fix is a pull request against whoever holds it.
 
 **Promotion to a regression oracle is not a tool.** An agent promoting its own
 retrieval results to ground truth is a self-confirming loop — what ranks high
@@ -341,7 +352,7 @@ None of these was read off a sentence that says so.
 
 | | Blocked on |
 |---|---|
-| `kb_challenge_raise` — raise a doubt, routed by falsifier type | nothing; next |
+| ~~`kb_challenge_raise` — raise a doubt, routed by falsifier type~~ | **Built.** It was waiting on nothing |
 | ~~`kb_feedback` — the retrieval-feedback store~~ | **Built.** The publish-gate scope was the blocker and is settled: `sessions/` is local only and permanently, and raw query text is committed only in `oracles/`, where promotion's human approval is also the disclosure review → [PLAN.md](PLAN.md) §6.1 |
 | The first `kb/literature/` entry | nothing; it is the only KB folder v1 can fill |
 
