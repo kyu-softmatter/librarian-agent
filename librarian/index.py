@@ -28,8 +28,10 @@ source, and that disagreement is the shape of an accident BD paid for.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -131,13 +133,31 @@ def build(docs: Iterable[Doc], path: Path, repo_shas: dict[str, str],
 
     Sorted by uid before insert so two runs over the same input produce the same
     file, which is what makes the regeneration criterion checkable at all.
+
+    **Built beside the target and moved in by `os.replace`.** It used to unlink
+    the old file and create the new one in place, which left a window where the
+    index was absent or half-built: `mcp_server.tools._open` returned `None` and
+    a call arriving then got `status: no_index`. Honest, and avoidable -- the
+    server opens the index read-only and **per call**, so with an atomic rename
+    a caller gets the old index or the new one and never a missing one.
+
+    This is the index's half of decision (j): the same rule the write tools
+    follow for a record (`librarian/record.py`), applied to the one file this
+    module writes. Two concurrent rebuilds still need no lock, because a
+    rebuild is deterministic -- identical inputs give byte-identical output, so
+    the race has no losing outcome, and differing inputs leave the last writer's
+    index with `index_stale` telling the truth on the next call.
     """
     rows = sorted(docs, key=lambda d: d.uid)
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        path.unlink()
+    # Same directory, so the rename stays on one filesystem. The name carries a
+    # uuid rather than the pid: two *threads* of one process building the same
+    # target would otherwise share one temp path, and the second `connect` to a
+    # database the first is writing fails with `attempt to write a readonly
+    # database`. Written with the pid first, and the race test found it.
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
 
-    db = sqlite3.connect(path)
+    db = sqlite3.connect(tmp)
     try:
         db.executescript(_DDL)
         db.executemany(
@@ -176,6 +196,11 @@ def build(docs: Iterable[Doc], path: Path, repo_shas: dict[str, str],
         db.commit()
     finally:
         db.close()
+    try:
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     return len(rows)
 
 

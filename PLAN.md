@@ -460,14 +460,19 @@ going to force it out — the second machine — is not there. **stdio therefore
 stays correct through BD**, which is the opposite of what this section said
 until 2026-09-15.
 
-**What still has to be settled is in the third row, and only that row.** Several
+**What had to be settled was the third row, and only that row.** Several
 agents on one machine means several spawned processes over one SQLite file.
 Reads are safe and concurrent — the server opens the index **read-only and per
 call** (`mcp_server/tools.py`), so a rebuild is picked up on the next call and
-no session holds a stale handle. Writes are *undefined*, and that is now the
-**single** remaining forcing function for a service, rather than one of two:
-decision (j). The shared registration form is still decision (i) — one machine
-does not make MS's absolute interpreter path portable.
+no session holds a stale handle. Writes were *undefined*, and they were the last
+forcing function for a service.
+
+**Decision 36 closed that row without one** (§3.7): no write tool updates a
+record, so nothing contends, and a record arrives by `os.link` from a complete
+temp file — idempotent under retry, atomic under concurrent read. So **nothing
+in this design now requires a service.** The shared registration form is still
+decision (i): one machine does not make MS's absolute interpreter path
+portable.
 
 **And the tool surface is a budget.** Every registered tool's name and parameter
 descriptions load into the **caller's** context at session start, in every
@@ -571,6 +576,67 @@ which profiles exist and what each one weights. It does not let a retrieval
 result change a weight: the loop [FEEDBACK.md](FEEDBACK.md) §5 blocks is a
 *result* promoted to ground truth, and a weight changes only by an edit to a
 versioned file, with a human in the diff.
+
+---
+
+### 3.7 Concurrent writes — none of the three mechanisms, and why
+
+Decided and built 2026-09-15; closes open (j). **`librarian/record.py`.**
+
+(j) offered a single-writer queue, a lock, or version-and-merge. All three
+answer *"what happens when two writers want the same thing"*, and **no write
+tool here wants the same thing.** `kb_challenge_raise` issues a challenge and
+`kb_feedback` records a session; both emit a **new record** and neither updates
+one. Custody already models a correction as a new record that supersedes the old
+(`superseded_by`, edge 4) — so there is no update to lose and nothing to merge.
+
+**The index is not written by a tool at all.** `build()` is a full rebuild from
+a CLI invocation, never incremental, and every read tool opens the index
+**read-only and per call**. So the contention (j) was written against does not
+exist between tools; what is left is two narrower failures, each closed by
+construction rather than by serialization.
+
+| The failure | What closes it |
+|---|---|
+| A **retried call landing twice** | The filename is a sha256 of the canonical record. The same record gets the same name, the name is created exclusively, and the second write is an idempotent no-op reporting `created: false` |
+| A reader seeing **half a record** — §8's *"an index built over a half-written entry"* | The bytes go to a sibling temp file and the final name is created as a **hard link** to it. `os.link` is atomic *and* exclusive in one call, so the record is absent or whole, never a prefix |
+| Two **concurrent rebuilds** | Nothing, and nothing is needed: a rebuild is deterministic — sorted by `uid`, no timestamps (BUILD.md §4-A) — so identical inputs give byte-identical output and the race has no losing outcome. Differing inputs leave the last writer's index, and `index_stale` reports the truth on the next call |
+| Two writers appending to a **generated rollup** | **There is no rollup, by decision.** This is the one shape that would need a lock, and it is also BD's `knowledge/source/papers/INDEX.md` — headed *do not edit by hand*, naming a generator not in the repository, stating 40 entries where 42 files exist (§1.2). The listing is derived at read time |
+| `git` | Not in any tool's write path. Committing is a human or CI act, which keeps the worst contention out of the question entirely |
+
+**Idempotence is load-bearing, not tidiness.** Oracle promotion requires a
+session reproduced under **two distinct `index_sha`**
+([FEEDBACK.md](FEEDBACK.md) §5, decision 21), and that condition exists to stop
+an agent promoting its own retrieval results to ground truth. If a retried
+`kb_feedback` could land twice, one caller calling twice would satisfy a check
+built to need two index states — the damping on `C-001`'s loop would come off
+through a retry.
+
+#### Two mistakes the concurrency tests found, both worth keeping on the page
+
+**① Claiming the name first defeats the thing it protects.** The first version
+created the final path with `O_CREAT | O_EXCL`, then wrote the temp file and
+renamed over it. That is exclusive, and it publishes an **empty file** for the
+length of the write: a reader scanning then got `JSONDecodeError` on a name
+already visible. Exclusivity and atomicity had to arrive in the *same* call,
+which is what `os.link` does and what `O_EXCL` plus a later rename cannot.
+
+**② A pid is not unique, and it caught the same error twice.** Both temp names
+were `.{name}.{pid}.tmp`. Two **threads** of one process then share one temp
+path: for a record they overwrite each other's bytes under it, and for the index
+the second `sqlite3.connect` to a database the first is writing fails with
+*attempt to write a readonly database*. Both carry a uuid now. The tests that
+found it run real threads rather than reasoning about the code, which is the
+only way either would have shown up.
+
+**What this closes beyond (j).** §3.4 named two forcing functions for an
+always-on service: a second machine, and a second writer. Decision 35 removed
+the first; this removes the second. **Nothing in the design now requires a
+service** — `demo/` keeps the HTTP transport as a contingency, not a plan.
+
+**What it does not close.** Open (a), the `publish-gate` scope for `sessions/`,
+is untouched: that is a disclosure question, not a concurrency one, and a
+record written perfectly is still a record of what someone was looking for.
 
 ---
 
@@ -1031,11 +1097,11 @@ from a platform.
 
 | Task | Exit condition |
 |---|---|
-| ~~One always-on service on the lab NAS~~ | **Dropped** (decision 35). stdio stays correct through BD; a service returns only if decision (j) concludes that serializing writes needs one, or when separation begins |
+| ~~One always-on service on the lab NAS~~ | **Dropped** (decisions 35 and 36). stdio stays correct through BD, and writes turned out to need no serialization — so a service returns only when the separation begins, if then |
 | The shared registration form (decision (i)) | One line, valid in all four `.mcp.json` files and in a person's client, with no absolute interpreter path in it |
 | `human:*` role profiles + `purpose` (decision 29) | A person's question and a lens's question return **different** top results from the same corpus, the way the lens pair already does ([BUILD.md](BUILD.md) §4-B) |
 | `map/04-agents/lib/` (decision 30) | Generated from `profiles/` and the tool surface, and a query for a term reports **which** profile declares it, with a locator — never which profile the asker meant (decision 31). The mechanism is §5.3's `profile_candidates` |
-| A second writer (decision (j)) | Two concurrent writes leave the index in a state a full rebuild reproduces exactly |
+| ~~A second writer (decision (j))~~ | **Done** (decision 36, §3.7). Its exit condition was *"two concurrent writes leave the index in a state a full rebuild reproduces exactly"* — met by making the rebuild atomic and deterministic rather than by serializing anything, and asserted under real threads in `tests/test_record.py` |
 
 ### Not in scope
 
@@ -1065,7 +1131,7 @@ defence against those two, so if it dies that way there is no defence left.
 | **Unpublished direction goes public** | Query text or a digest in a public repo | §6.1 `publish-gate`; sessions uncommitted until decided |
 | **Rank becomes worth** | A score stored in an entry | §2.1 — returned, never stored |
 | **The server is unreachable** | Every call errors — or, worse, the tools are absent from the session and nothing says so | §3.4's three conditions. Uptime belongs to the host, not to a caller; and a caller that could not reach the store records `not_searched`, which is a fact, rather than nothing |
-| **Two agents write at once** | A lost update, or an index built over a half-written entry | v1 has one writer and read-only tools. A second writer gets a policy **before** it is admitted — decision (j), which since 2026-09-15 is the **only** remaining reason this design would need a service at all (§3.4) |
+| **Two agents write at once** | A lost update, or an index built over a half-written entry | **Closed by decision 36** (§3.7): no write tool updates a record, so there is no update to lose, and a record arrives by `os.link` from a complete temp file, so a reader never sees a prefix. The index build is atomic for the same reason. `tests/test_record.py` asserts both under real threads |
 | **A person is served under the wrong role** | A plausible, correctly cited answer that is not the one they needed — and nothing in it says so | Roles are versioned files, so a wrong answer is at least reproducible and diffable. Whether the service checks the declared role is decision (l) (§3.5②) |
 | **The librarian infers a profile** | Retrieval narrows to a lens nobody asked for, invisibly | §3.6: the agent map supplies the correspondence, the caller makes the choice (decision 31) |
 | **A silently empty read** | A moved path returns 0 rows instead of an error | Adapters assert a non-zero count per source; a source that drops to zero fails the build |
@@ -1117,6 +1183,7 @@ silently empty read is the same failure mode as an unwired checker."*
 | 33 | **How a caller finds its profile** | **Candidates returned with citations, never applied** — a return field of `kb_search`, keyed on each agent file's `owns`, with `candidates_applied: false`. **Built** `Index.profile_candidates` | Decided and built 2026-09-15, §5.3. Decision 31 forbids inferring the profile and says nothing about how a caller learns which to declare; this is that, without a model — the pick happens in the caller's transcript where it is visible |
 | 34 | **Whether this repository's own files are drift-checked** | **Yes, by `tests/test_profiles.py`** — gate ids against MS's code, field terms against what the index can match, `kind_weight` against `KINDS` | Decided 2026-09-15. `librarian/drift.py` reads MS against MS and never read `profiles/`, so a profile boosted `G10` for six days after MS deleted the gate. An owner list naming a retired gate is a wrong answer with a citation attached (§5.3) |
 | 35 | **Where everything runs** | **The microscope PC — all four systems, one machine.** Separation is deferred until the system is understood well enough to be worth splitting | Decided 2026-09-15 by the operator; **supersedes 27** and retires §1.6's two-machine premise. BD's macOS is a development environment, not a deployment target: it passes CI and runs anywhere. The consequence is subtraction — stdio stays correct through BD, the NAS host is dropped, and decision (j) becomes the only remaining reason to want a service |
+| 36 | **Concurrent-write policy** | **None of the three offered.** Append-only records, named by a sha256 of their content, created by `os.link` from a complete temp file — idempotent under retry, atomic under concurrent read, and no rollup file for two writers to contend over | Decided and built 2026-09-15, §3.7; **closes open (j)**. All three mechanisms answer *"two writers want the same thing"*, and no write tool here wants the same thing. It also removes §3.4's second forcing function for a service, so after decision 35 **nothing requires one** |
 
 ### Open — decided when the work reaches them
 
@@ -1130,7 +1197,6 @@ silently empty read is the same failure mode as an unwired checker."*
 | f | Tier 1 execution site | When the weekly job is built |
 | g | Deletion timing | MIGRATION Step 4's proof |
 | i | **One registration form every caller uses** — **a command, not a URL** now that decision 35 keeps the transport on stdio, and how each `.mcp.json` gets it | v2. MS's own entry hard-codes an absolute Windows interpreter path (§1.6), which is exactly what a shared form has to replace, and one machine does not make it portable — a person's client needs the same line (§3.5) |
-| j | **Concurrent-write policy** — single-writer queue, lock, or version-and-merge | the first write tool a second agent can reach (§8) |
 | k | Whether the claim-extraction axes — `validity` · `durability` · `operational` · `controversy_id` — enter the index as columns | `kb_search`'s `require` parameter. None of the four exists in any of the three repositories yet; if they land they arrive **opt-in per query**, never as profile filters, for §5.1's reason |
 | l | **Whether the service verifies a `caller_profile` claim**, or accepts it as declared | An endpoint several people reach independently (§3.5②). **Its trigger moved with decision 35**: not BD's arrival, but the separation — trusted agents and one operator on one machine never raise it |
 | m | **The `human:*` role set** — which roles exist, and who writes them | the first caller who is not the author (§3.5①) |

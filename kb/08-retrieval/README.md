@@ -21,3 +21,10 @@ not.
 > ([../../PLAN.md](../../PLAN.md) §6.1). Until then: local only.
 
 No `cards/` — the unit here is a transaction, not a claim.
+
+**One session is one file, written once.** `librarian/record.py` names it by a
+sha256 of its own content, so a retried `kb_feedback` collapses into the record
+it already wrote instead of becoming a second one. That is not tidiness: §5's
+promotion gate requires a session reproduced under **two distinct `index_sha`**,
+and a duplicate would let one caller clear a check designed to need two
+([../../PLAN.md](../../PLAN.md) §3.7).

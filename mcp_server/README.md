@@ -93,11 +93,14 @@ mean several spawned processes over one SQLite file. `_open()` connects
 `mode=ro` and **per call**, closing again before returning, so no session pins a
 handle and a `reindex` lands on the next call — a call that arrives mid-rebuild
 gets `status: no_index`, which is the designed degradation rather than a wrong
-answer. Writes are undefined between two processes, and that is now the single
-remaining reason this design would want a service:
-[../PLAN.md](../PLAN.md) §3.4, decision (j). The shared registration form
-stays open too — one machine does not make MS's absolute interpreter path
-portable.
+answer. Writes needed a policy and now have one that is not a service:
+`librarian/record.py` names a record by a sha256 of its content and creates it
+with `os.link` from a complete temp file, so a retry is idempotent and a
+concurrent reader sees a whole record or none. `build()` moves the index in by
+`os.replace` for the same reason, which is why the `no_index` answer above now
+covers only the interval before an index has ever been built
+([../PLAN.md](../PLAN.md) §3.7). The shared registration form stays open — one
+machine does not make MS's absolute interpreter path portable.
 
 **People reach it the same way, and nothing here composes an answer for them.** A
 person arrives through their own MCP client under a `human:*` role profile, so

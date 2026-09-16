@@ -31,9 +31,10 @@ argument differs.
 described an always-on service as v2's transport; decision 35 put every system
 on the microscope PC, which removed the second machine that forced it, and stdio
 now stays correct through BD. So these pages preview the shape a service would
-take **if the concurrent-write policy (decision (j)) ever calls for one** — kept
-out of the package it previews, and worth keeping for the browser reachability
-it demonstrates either way.
+take **if the separation ever calls for one**. Decision 36 has since settled
+the concurrent-write policy without a service, so this is a contingency with no
+scheduled trigger — kept out of the package it previews, and kept at all for the
+browser reachability it demonstrates.
 
 Two transport options make the endpoint reachable from a browser at all:
 `json_response` returns plain JSON instead of an event stream, and

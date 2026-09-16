@@ -32,6 +32,33 @@ refused.
 **Librarian may settle only one thing:** for the literature route, whether the
 cited locator exists and states the condition. Everything else returns `unknown`.
 
+## How a record is written
+
+**Append-only, and two writers never contend** — [../PLAN.md](../PLAN.md) §3.7,
+`librarian/record.py`. Nothing here is ever updated in place: a correction is a
+new record that supersedes the old one, which is the same way custody models
+retirement everywhere else.
+
+A filename is `<date>-<slug>-<sha256[:8]>`, where the digest is over the
+canonical record. Two consequences, and both are the policy rather than
+implementation detail:
+
+- **A retried call is one record, not two.** The same content gets the same
+  name, the name is created exclusively, and the second write is a no-op. This
+  matters most for `kb/08-retrieval/`: oracle promotion requires a session
+  reproduced under **two distinct `index_sha`**, and a retry landing twice would
+  let one caller satisfy a check built to need two index states.
+- **A reader sees a whole record or none.** The bytes go to a sibling temp file
+  and the final name is created as a hard link to it, so a concurrent `scan()`
+  never reads a prefix.
+
+**There is no generated index over these folders, by decision.** A rollup two
+writers both append to is the one shape that would need a lock — and it is also
+BD's `knowledge/source/papers/INDEX.md`, headed *do not edit by hand*, naming a
+generator that is not in the repository and stating 40 entries where 42 files
+exist. That file is why this repository exists. The listing is derived when it
+is read.
+
 ## `inbox/`
 
 **Nothing leaves this folder without human approval.** The LLM refinement step
