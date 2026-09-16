@@ -216,6 +216,25 @@ class Hit:
 
 
 @dataclass
+class ProfileCandidate:
+    """A profile the question's own words point at -- and nothing more.
+
+    It answers *"which profile should I have declared"* without deciding it.
+    `because` is the uid of the **agent file** whose ownership section matched,
+    never of the profile: a profile listing a term is this repository
+    describing itself, while `.claude/agents/` is the owner's own declaration
+    at a locator (PLAN.md 3.6, 5.3).
+    """
+    profile: str
+    because: str                         # repo:path#locator of the agent doc
+    declares: str                        # what that file says it owns, verbatim
+    score: float
+    #: The question's own words that licensed this candidate -- the discriminating
+    #: ones only. A term every owner declares is dropped before it gets here.
+    matched_terms: tuple[str, ...] = ()
+
+
+@dataclass
 class SearchResult:
     status: str                          # ok | searched_empty
     query: str
@@ -225,6 +244,7 @@ class SearchResult:
     hits: list[Hit] = field(default_factory=list)
     terms_matched: list[str] = field(default_factory=list)
     terms_globbed: list[str] = field(default_factory=list)
+    profile_candidates: list[ProfileCandidate] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -242,7 +262,45 @@ class SearchResult:
                  "review_after": h.review_after, "snippet": h.snippet}
                 for h in self.hits
             ],
+            # Returned, and applied to nothing. The hits above were ranked by
+            # the profile the caller declared; these say which profile the
+            # question's own words point at, each citing the file that says so.
+            # The caller chooses -- so the choice lands in the caller's
+            # transcript, where it is visible (PLAN.md 5.3 rule 1).
+            "profile_candidates": [
+                {"profile": c.profile, "because": c.because,
+                 "declares": c.declares, "matched_terms": list(c.matched_terms),
+                 "score": round(c.score, 4)}
+                for c in self.profile_candidates
+            ],
+            "candidates_applied": False,
         }
+
+
+#: Function words, dropped before a question is matched against an owner's
+#: declaration. They are the difference between this mechanism working and not:
+#: an `owns` section is **prose**, so `can`, `this` and `the` occur in it as
+#: ordinary words, and a question's stopwords then match a declaration for no
+#: reason a caller could check. Measured before the list existed: *"how long can
+#: I image this dye before it bleaches"* was licensed for lens 5 by `can` and
+#: `this` -- the right answer for a reason that says nothing.
+#:
+#: **This is not the morphological analysis decision 7 rules out.** That rules
+#: out a stemmer, on the grounds that reproducibility outranks ranking quality.
+#: A fixed list in a versioned file is the opposite of a stemmer: it is
+#: readable, diffable, and matches the same way on every machine.
+#:
+#: Used **only** for profile candidates. `search` does not consult it -- a
+#: caller asking about `the` gets whatever bm25 says, and the hits are the
+#: product this repository is judged on.
+_STOPWORDS = frozenset("""
+a about all also an and any are as at be been but by can could did do does
+for from had has have how if in into is it its may more most must no not of
+on one only or other out over own said same should so some such than that
+the their them then there these they this those to too under up use used
+using very was way we were what when where which while who why will with
+would you your
+""".split())
 
 
 def _terms(query: str) -> tuple[list[str], list[str]]:
@@ -485,7 +543,16 @@ class Index:
     def search(self, query: str, profile: "Profile", limit: int = 10,
                current_shas: Optional[dict[str, str]] = None,
                require: Optional[dict[str, list[str]]] = None,
-               max_per_path: Optional[int] = None) -> SearchResult:
+               max_per_path: Optional[int] = None,
+               profiles: Optional[dict[str, "Profile"]] = None) -> SearchResult:
+        """Ranked hits under one profile.
+
+        Pass `profiles` -- every profile the server knows -- to have the result
+        also carry `profile_candidates`: which profile the question's own words
+        point at. Omitted, the field is empty, and `profile_candidates()` below
+        omits it when it recurses so the search for candidates does not search
+        for candidates of its own.
+        """
         long_, short = _terms(query)
         res = SearchResult(
             status="searched_empty", query=query, profile=profile.id,
@@ -532,7 +599,156 @@ class Index:
         res.hits = [_hit(r, s, matched_by)
                     for s, r in _diversify(scored, limit, cap)]
         res.status = "ok"
+        if profiles:
+            res.profile_candidates = self.profile_candidates(query, profiles)
         return res
+
+    #: The locators an agent file states its ownership at. `owns` is the
+    #: section, `definition` the frontmatter description -- which is where MS
+    #: writes the invocation clause, *"Invoke it when the user mentions
+    #: photobleaching, phototoxicity, ... exposure dose"*, put there for
+    #: exactly this purpose.
+    #:
+    #: **Not `gates`.** Only 3 of MS's 5 agent files name a gate in their
+    #: description, and lens 5 -- one of the two v1 profiles -- names none: it
+    #: named G10 alone, and MS removed G10 on 2026-09-09. Keyed on gates this
+    #: returns nothing for the lens the corpus is best prepared for
+    #: (PLAN.md 5.3 rule 3).
+    OWNERSHIP_LOCATORS = ("owns", "definition")
+
+    def profile_candidates(self, query: str, profiles: dict[str, "Profile"],
+                           limit: int = 4) -> list[ProfileCandidate]:
+        """Which profiles the question's own words point at, each with a citation.
+
+        **A term licenses a candidate only where it does not match every
+        owner.** That is the whole mechanism, and the first draft did not have
+        it: matching the question as one OR-combined FTS query -- the way
+        `search` does -- ranked *"how long can I image this dye before it
+        bleaches"* under **lens 4** and *"what seed did that run use"* under
+        lens 5. Over 1,446 documents bm25 and the profile weights hold
+        stopwords down. Over the five agent files they do not: `how`, `this`
+        and `run` are in all five declarations, so they decided the order.
+
+        So each term is asked separately, and a term matched by every owner is
+        dropped -- it states nothing about who owns the question. A term with
+        one owner is worth a whole point, a term with two half of one. This is
+        §3.6's rule arithmetically: *"report which lens declares `G10`"* is
+        answerable because `G10` has one owner, and the same sentence about a
+        term every lens declares would be true and useless.
+
+        **Two rules, and the second is what makes a candidate defensible.** A
+        term matched by every owner is dropped, and a candidate also needs at
+        least one term with **exactly one** owner. That second rule is §3.6's
+        sentence as arithmetic: *"report which lens declares `G10`"* is
+        answerable because `G10` has one owner, and the same sentence about a
+        term every lens declares would be true and useless.
+
+        **The known limit, measured rather than assumed: an inflected word
+        does not reach the declaration.** `_fts_expr` quotes a term as a
+        phrase, so trigram matching needs a contiguous substring -- `bleach`
+        finds `photobleaching` in 14 agent documents and **`bleaches` finds
+        0**. Decision 7 rules out the stemmer that would bridge them, so *"how
+        long can I image this dye before it bleaches"* returns **no
+        candidate**. That is the honest outcome: an empty candidate list says
+        the question's words match no owner uniquely, which is true, and is
+        worth more than a suggestion whose stated reason is `can`.
+
+        Searched under `NEUTRAL`, deliberately: ranking the search for a
+        profile *by* a profile would let the declared one decide which others
+        look plausible, and nothing in the answer would show it.
+
+        A profile with no `lens` gets no candidate, which is the correct answer
+        rather than a gap: `human:*` roles and this repository's own `lib/`
+        slot have no agent file to cite, and rule 2 does not bend for them
+        (PLAN.md 5.3 rule 4).
+        """
+        # profile -> the agent-doc key that would declare it. Both ends are
+        # read off a file: `lens: 5` in the profile, "Committee Lens 5" in the
+        # agent description, which `adapters/ms_agents.py` stores as `origin`.
+        by_key: dict[str, list[str]] = {}
+        for prof in profiles.values():
+            if prof.lens is None or ":" not in prof.id:
+                continue
+            repo = prof.id.split(":", 1)[0]
+            by_key.setdefault(f"{repo}:lens-{prof.lens}", []).append(prof.id)
+        if not by_key:
+            return []
+
+        owners = self._ownership_docs()
+        if not owners:
+            return []
+
+        long_, _ = _terms(query)
+        scores: dict[str, float] = {}
+        matched: dict[str, list[str]] = {}
+        sole: set[str] = set()                       # owners licensed outright
+        for term in dict.fromkeys(long_):            # de-duplicated, order kept
+            if term.lower() in _STOPWORDS:
+                continue
+            hit_keys = {k for k, _ in self._ownership_matches(term, owners)}
+            if not hit_keys:
+                continue
+            # Matched by every owner, it says nothing about which one owns the
+            # question. **Only where there is more than one owner**: the rule
+            # is that a term has to discriminate *among* owners, and with a
+            # single indexed owner there is nothing to discriminate among, so
+            # the rule is vacuous and must not fire. It did, and no candidate
+            # could ever be produced against a one-lens index -- a boundary the
+            # real five-lens corpus hid completely.
+            if len(owners) > 1 and len(hit_keys) == len(owners):
+                continue
+            if len(hit_keys) == 1:
+                sole |= hit_keys
+            for k in hit_keys:
+                scores[k] = scores.get(k, 0.0) + 1.0 / len(hit_keys)
+                matched.setdefault(k, []).append(term)
+
+        out: list[ProfileCandidate] = []
+        for key, score in scores.items():
+            if key not in sole:
+                continue
+            uid, declares = owners[key]
+            for pid in by_key.get(key, ()):
+                out.append(ProfileCandidate(
+                    profile=pid, because=uid,
+                    declares=declares, score=score,
+                    matched_terms=tuple(matched[key])))
+        # Ties break on the profile id, so one index answers one question the
+        # same way twice.
+        out.sort(key=lambda c: (-c.score, c.profile))
+        return out[:limit]
+
+    def _ownership_docs(self) -> dict[str, tuple[str, str]]:
+        """`repo:origin` -> (uid, the text that declares what it owns).
+
+        One row per owner, `owns` preferred over `definition` because it is
+        the section written to answer this and the description is a paragraph
+        that also says who to invoke alongside.
+        """
+        out: dict[str, tuple[str, str]] = {}
+        rows = self.db.execute(
+            f"SELECT uid, repo, origin, locator, title, body FROM doc "
+            f"WHERE kind = 'agent' AND origin IS NOT NULL AND locator IN "
+            f"({','.join('?' * len(self.OWNERSHIP_LOCATORS))})",
+            list(self.OWNERSHIP_LOCATORS)).fetchall()
+        for r in sorted(rows, key=lambda r: (r["uid"],)):
+            key = f"{r['repo']}:{r['origin']}"
+            text = (r["body"] or r["title"] or "").strip()
+            if key not in out or r["locator"] == "owns":
+                out[key] = (r["uid"], text)
+        return out
+
+    def _ownership_matches(self, term: str,
+                           owners: dict[str, tuple[str, str]]
+                           ) -> list[tuple[str, str]]:
+        """The owners one term matches, through the same FTS path as a search."""
+        uid_to_key = {uid: key for key, (uid, _) in owners.items()}
+        rows = self.db.execute(
+            "SELECT d.uid FROM doc_fts JOIN doc d ON d.rowid = doc_fts.rowid "
+            "WHERE doc_fts MATCH ? AND d.kind = 'agent'",
+            (_fts_expr([term]),)).fetchall()
+        return [(uid_to_key[r["uid"]], r["uid"])
+                for r in rows if r["uid"] in uid_to_key]
 
 
 def _diversify(scored: list[tuple[float, sqlite3.Row]], limit: int,
@@ -588,6 +804,10 @@ class Profile:
     context, because it is an index and not context.
     """
     id: str
+    #: The lens this profile serves, as the profile file declares it. It is
+    #: what links a profile to the agent file that declares what that lens
+    #: owns -- both ends stated in a file, neither inferred (PLAN.md 5.3).
+    lens: Optional[int] = None
     kind_weight: dict[str, float] = field(default_factory=dict)
     boost_gate: tuple[str, ...] = ()
     boost_field: tuple[str, ...] = ()
@@ -628,6 +848,7 @@ class Profile:
         boost = d.get("boost") or {}
         return cls(
             id=str(d["id"]),
+            lens=int(d["lens"]) if d.get("lens") is not None else None,
             kind_weight={str(k): float(v) for k, v in (d.get("kind_weight") or {}).items()},
             boost_gate=tuple(boost.get("gate") or ()),
             boost_field=tuple(boost.get("field") or ()),

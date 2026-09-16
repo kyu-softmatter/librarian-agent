@@ -764,7 +764,10 @@ close it, and answers a weaker question deterministically instead.**
 
 ### 5.3 Profile candidates — the caller chooses, and the reason is citable
 
-Decided 2026-09-15.
+Decided 2026-09-15. **Built the same day** — `Index.profile_candidates`,
+returned by `kb_search` and printed by `librarian search`. Two things changed
+between the design above and the working version, and both are recorded at the
+end of this section rather than smoothed out of it.
 
 §5.1 makes `caller_profile` a declared parameter and §3.6 forbids inferring it.
 Both stand. **What neither supplies is how a caller who does not already know
@@ -860,6 +863,44 @@ fire.
 the retrieval score that produced them, it does not compose a profile (§3.6), and
 it settles nothing about **owner**, which stays an end of `kb_supplies` rather
 than a tenth tool (decision 25, open (n)).
+
+#### What building it changed
+
+**① Matching the question the way `search` does it made the mechanism useless.**
+The design said *"match the question's terms against those rows using the same
+FTS path, so why a hit matched is answerable in coordinates."* Done literally —
+one OR-combined query — it ranked *"how long can I image this dye before it
+bleaches"* under **lens 4** and *"what seed did that run use"* under lens 5.
+Over 1,446 documents bm25 and the profile weights hold function words down.
+Over **five** agent files they do not: `how`, `this` and `run` occur in all five
+declarations, because an `owns` section is prose. So each term is now asked
+separately, under two rules:
+
+| Rule | Effect |
+|---|---|
+| A term matched by **every** owner is dropped | It states nothing about which owner. Vacuous where there is only one owner, and it must not fire there — it did, and no candidate could be produced against a one-lens index at all, a boundary the five-lens corpus hid completely |
+| A candidate needs at least one term with **exactly one** owner | §3.6's sentence as arithmetic: *"report which lens declares `G10`"* is answerable because `G10` has one owner. The same sentence about a term every lens declares would be true and useless |
+
+A function-word list (`_STOPWORDS`) does the rest, and **it is not the
+morphological analysis decision 7 rules out.** That rules out a stemmer, on the
+grounds that reproducibility outranks ranking quality; a fixed list in a
+versioned file is a stemmer's opposite — readable, diffable, identical on every
+machine. It is consulted for candidates only. `search` never sees it, because
+the hits are the product this repository is judged on.
+
+**② An inflected word does not reach the declaration, and the honest result is
+an empty list.** `_fts_expr` quotes a term as a phrase, so trigram matching
+needs a contiguous substring: **`bleach` finds `photobleaching` in 14 agent
+documents and `bleaches` finds 0.** Decision 7 rules out the stemmer that would
+bridge them, so the inflected question returns **no candidate** — while *"how
+much bleach dose can this dye take"* returns lens 5 at 1.00.
+
+That is a limit, and it is the right one to have. Before the two rules above,
+that same question *did* return lens 5 — licensed by `can` and `this`. The right
+owner for a reason that says nothing is worse than no owner, because a cited
+suggestion reads as evidence. `tests/test_profiles.py` pins both, so the
+tempting fix — loosening the match until `bleaches` lands somewhere — fails
+rather than passes quietly.
 
 ---
 
@@ -1073,7 +1114,7 @@ silently empty read is the same failure mode as an unwired checker."*
 | 30 | The fourth agent in `map/04-agents/` | **`lib/`, generated from `profiles/` and the tool surface** | This repository has no `.claude/agents/`; those two files are where its roles are actually declared (§3.6) |
 | 31 | What the agent map licenses | **The correspondence, not the choice** — report which lens owns a term; never infer the caller's profile | A guessed profile changes the evidence returned and nothing in the answer shows it was guessed (§3.6, §5.1) |
 | 32 | **Whether Librarian ever calls a source repository** | **Never.** It is an MCP *server* and never an MCP *client* of MS, BD or RT. Ingest stays one-directional: `git fetch`, and the sha becomes every hit's provenance | Confirmed 2026-09-15. Calling out breaks all three of §3.4's conditions at once — an answer would depend on another agent's session being up — and a two-way call has no depth bound, so the loop circulates doubt instead of topics (`C-001`). Edge 4 stays a routed file drop |
-| 33 | **How a caller finds its profile** | **Candidates returned with citations, never applied** — a return field of `kb_search`, keyed on each agent file's `owns`, with `candidates_applied: false` | Decided 2026-09-15, §5.3. Decision 31 forbids inferring the profile and says nothing about how a caller learns which to declare; this is that, without a model — the pick happens in the caller's transcript where it is visible |
+| 33 | **How a caller finds its profile** | **Candidates returned with citations, never applied** — a return field of `kb_search`, keyed on each agent file's `owns`, with `candidates_applied: false`. **Built** `Index.profile_candidates` | Decided and built 2026-09-15, §5.3. Decision 31 forbids inferring the profile and says nothing about how a caller learns which to declare; this is that, without a model — the pick happens in the caller's transcript where it is visible |
 | 34 | **Whether this repository's own files are drift-checked** | **Yes, by `tests/test_profiles.py`** — gate ids against MS's code, field terms against what the index can match, `kind_weight` against `KINDS` | Decided 2026-09-15. `librarian/drift.py` reads MS against MS and never read `profiles/`, so a profile boosted `G10` for six days after MS deleted the gate. An owner list naming a retired gate is a wrong answer with a citation attached (§5.3) |
 | 35 | **Where everything runs** | **The microscope PC — all four systems, one machine.** Separation is deferred until the system is understood well enough to be worth splitting | Decided 2026-09-15 by the operator; **supersedes 27** and retires §1.6's two-machine premise. BD's macOS is a development environment, not a deployment target: it passes CI and runs anywhere. The consequence is subtraction — stdio stays correct through BD, the NAS host is dropped, and decision (j) becomes the only remaining reason to want a service |
 

@@ -44,10 +44,16 @@ for six days. Nothing caught it: `librarian/drift.py` reads MS's `docs/` against
 MS's code, and never read this folder. So `profiles/` was the one place a dead
 identifier could sit unnoticed, in a repository built to catch exactly that.
 
-It is not cosmetic. `boost.gate` changes which evidence a caller gets back, and
-the profile-candidate design ([../PLAN.md](../PLAN.md) §5.3) reads these lists to
-say **which lens owns a term**. An owner list naming a retired gate is a wrong
-answer *with a citation attached*.
+It is not cosmetic: `boost.gate` changes which evidence a caller gets back.
+
+> **A correction to what stood here.** This paragraph said the
+> profile-candidate mechanism ([../PLAN.md](../PLAN.md) §5.3) *"reads these
+> lists to say which lens owns a term."* **It does not, and must not.** Built,
+> it reads each lens's own `.claude/agents/` `owns` section and cites that file
+> at a locator. A profile listing a term is this repository describing itself,
+> and §3.6's rule is that self-description is not self-confirmation — the
+> licence to say lens 5 owns a term is the owner's, not ours. The lists here
+> still matter for the reason above, and they are not the owner map.
 
 `tests/test_profiles.py` checks all three lists on every run, **at two different
 strengths**, because the two kinds of term fail differently:

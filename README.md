@@ -141,26 +141,30 @@ Three of those constraints shape everything here:
 
 ## v1 — what is built
 
-Read tools only, over the microscope repository. Measured against
-`agentic-microscope` @ `196cdf1`:
+Read tools only. Measured 2026-09-15 against `agentic-microscope` @ `9f971a8`
+and `Brownian-Dynamics-Agent` @ `a18e171` — **the command that computes each row
+is below the table**, because every figure here has already gone stale once:
 
 | | |
 |---|---|
-| Documents indexed | **513**, from 59 files, every candidate file accounted for |
-| Cross-references | **205** — 144 indexed · 54 present but unindexed · 7 broken |
-| Registry coverage rows | **48** |
-| Drift findings | **11** |
-| Tests | **101**, 81 of them offline |
+| Documents indexed | **1,446** — 626 from the microscope, 820 from the simulator, every candidate file accounted for |
+| Cross-references | **557** — 437 indexed · 91 present but unindexed · 29 broken |
+| Registry coverage rows | **25** |
+| Drift and defect findings | **34** |
+| Tests | **117**, 85 of them offline |
 
 ```bash
 pip install -e ".[dev]"
 git clone --depth 1 https://github.com/kyu-softmatter/agentic-microscope.git cache/ms
-python -m librarian.cli reindex --repo ms
+git clone --depth 1 https://github.com/kyu-softmatter/Brownian-Dynamics-Agent.git cache/bd
+
+# Both repos in one command. `--repo ms` alone rebuilds in full and drops bd.
+python -m librarian.cli reindex --repo ms --repo bd
 
 python -m librarian.cli search "what limits how long I can image this dye" \
     --profile ms:lens-5-photo-perturbation
 python -m librarian.cli gaps --missing-only
-python -m librarian.cli supplies G10
+python -m librarian.cli supplies G20
 python -m librarian.cli inputs radial_stiffness_n_per_m
 python -m librarian.cli drift --repo ms
 python -m pytest

@@ -191,7 +191,8 @@ def cmd_search(args) -> int:
     current = {r: commit_sha(CACHE / r) for r in idx.repo_shas if (CACHE / r).is_dir()}
     res = idx.search(" ".join(args.query), profiles[args.profile],
                      limit=args.limit, current_shas=current,
-                     require={"evidence": args.require_evidence} if args.require_evidence else None)
+                     require={"evidence": args.require_evidence} if args.require_evidence else None,
+                     profiles=profiles)
     if args.json:
         print(json.dumps(res.as_dict(), indent=2, ensure_ascii=False))
         return 0
@@ -199,6 +200,7 @@ def cmd_search(args) -> int:
     stale = "  [index_stale]" if res.index_stale else ""
     print(f"status={res.status}  profile={res.profile}{stale}")
     print(f"terms: match={res.terms_matched} glob={res.terms_globbed}\n")
+    _print_candidates(res)
     if res.status == "searched_empty":
         print("  searched_empty -- the corpus was searched and returned nothing.")
         print("  (Not the same as not_searched, which is the absence of a record.)")
@@ -212,6 +214,24 @@ def cmd_search(args) -> int:
         if h.snippet:
             print(f"      {h.snippet[:110]}")
     return 0
+
+
+def _print_candidates(res) -> None:
+    """Which profile the question points at -- printed, and applied to nothing.
+
+    Kept visibly separate from the hits above it. The hits were ranked by the
+    profile that was declared; these are a suggestion about what to declare
+    instead, and running them together would be the silent narrowing PLAN.md
+    5.3 rule 1 exists to prevent.
+    """
+    if not res.profile_candidates:
+        return
+    print(f"profile candidates for this question "
+          f"(applied to nothing; ranked under {res.profile}):")
+    for c in res.profile_candidates:
+        print(f"   {c.score:6.2f}  {c.profile}   <- {', '.join(c.matched_terms)}")
+        print(f"           declared at {c.because}")
+    print()
 
 
 def cmd_get(args) -> int:

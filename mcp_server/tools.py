@@ -88,6 +88,15 @@ def register(server, index_path: Path, profiles_dir: Path,
         `docs/` -- ask for it only when a tier is genuinely required.
 
         Each hit carries `repo@sha:path#locator`. Cite that, not the snippet.
+
+        `profile_candidates` says which profile the question's own words point
+        at, each citing the **agent file** that declares it. It is **applied to
+        nothing** -- `candidates_applied` is always false and the hits above
+        were ranked by the profile you declared. Re-ask under a candidate if one
+        fits; the choice is yours to make and to record, because a profile
+        inferred here would change the evidence returned with nothing in the
+        answer showing it was inferred. An empty list means no owner declares
+        the question's words uniquely, which is an answer.
         """
         idx = _open()
         if idx is None:
@@ -95,12 +104,24 @@ def register(server, index_path: Path, profiles_dir: Path,
         try:
             profiles = load_profiles(profiles_dir)
             if caller_profile not in profiles:
+                # The branch PLAN.md 5.3 was written about: a list of ids
+                # and nothing to choose by. The candidates are cited, so a
+                # caller that guessed a name wrong gets a reason rather than
+                # a menu -- and still picks for itself.
                 return {"status": "unknown_profile", "asked_for": caller_profile,
-                        "known": sorted(profiles)}
+                        "known": sorted(profiles),
+                        "profile_candidates": [
+                            {"profile": c.profile, "because": c.because,
+                             "declares": c.declares,
+                             "matched_terms": list(c.matched_terms),
+                             "score": round(c.score, 4)}
+                            for c in idx.profile_candidates(question, profiles)],
+                        "candidates_applied": False}
             res = idx.search(question, profiles[caller_profile], limit=limit,
                              current_shas=_current_shas(idx),
                              require={"evidence": require_evidence}
-                             if require_evidence else None)
+                             if require_evidence else None,
+                             profiles=profiles)
             out = res.as_dict()
             out["notes"] = [EMPTY_NOTE, STALE_NOTE, TIER_NOTE]
             return out

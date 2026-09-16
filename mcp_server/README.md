@@ -6,7 +6,7 @@ arrives as a pull request.
 
 | Tool | Purpose |
 |---|---|
-| `kb_search` | ranked hits with coordinates, tier and falsifier. Built: `librarian/index.py` |
+| `kb_search` | ranked hits with coordinates, tier and falsifier — plus `profile_candidates`, which profile the question's own words point at, each citing the agent file that declares it and **applied to nothing**. Built: `librarian/index.py` |
 | `kb_inputs` | what a computation needs, and which of it exists — the closure over a signature. Built: `librarian/inputs.py` |
 | `kb_get` | one entry, body and frontmatter |
 | `kb_neighbors` | `cites` / `used_by` / `supersedes` graph |

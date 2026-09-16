@@ -140,3 +140,79 @@ def test_kb_stale_answers_two_different_questions(server):
     # The falsifier check is not duplicated here: drift.py owns it, with the
     # majority rule that keeps it from reporting calibrations.
     assert "no_falsifier" not in out["entry_defects"]
+
+
+# --- profile candidates (PLAN.md 5.3) ---------------------------------------
+
+def test_the_candidate_field_is_always_present_and_always_unapplied(server):
+    """Absent, the field would be indistinguishable from *"no candidate"*.
+
+    That is constraint ① in miniature: this surface answers with a state, not
+    with silence. `candidates_applied` is asserted on every path because it is
+    the promise the caller is being asked to rely on -- the hits were ranked by
+    the profile they declared, and nothing below re-ranked them.
+    """
+    for args in ({"question": "coverslip thickness"},
+                 {"question": "coverslip", "caller_profile": "ms:nope"}):
+        out = _call(server, "kb_search", args)
+        assert "profile_candidates" in out, args
+        assert out["candidates_applied"] is False, args
+
+
+def _server_with_profile(tmp_path):
+    """One lens profile and the agent file that declares it -- both ends."""
+    from mcp.server.mcpserver import MCPServer
+
+    from mcp_server import tools
+
+    docs = [
+        Doc(repo="ms", path=".claude/agents/sample-optics.md", locator="owns",
+            commit_sha="s1", kind="agent", origin="lens-4",
+            provenance="declaration", title="sample-optics: owns",
+            body="Objective choice, immersion, coverslip thickness, chamber."),
+        Doc(repo="ms", path="kb/expertise/a.md", locator="verdict",
+            commit_sha="s1", kind="expertise", evidence="measured", tier=1,
+            title="coverslip thickness", body="170 um in use."),
+    ]
+    idx_path = tmp_path / "kb.sqlite"
+    build(docs, idx_path, {"ms": "s1"})
+
+    pdir = tmp_path / "profiles"
+    pdir.mkdir()
+    (pdir / "ms-lens4.yaml").write_text(
+        "id: ms:lens-4-sample-optics\nlens: 4\n", encoding="utf-8")
+
+    s = MCPServer(name="librarian-test", version="0.0.0")
+    tools.register(s, index_path=idx_path, profiles_dir=pdir)
+    return s
+
+
+def test_a_candidate_reaches_the_caller_with_its_citation(tmp_path):
+    """End to end: the question's word, the profile, and the file that says so."""
+    s = _server_with_profile(tmp_path)
+    out = _call(s, "kb_search", {"question": "which immersion and coverslip"})
+    cands = out["profile_candidates"]
+    assert cands, "the lens declares both words; it should be a candidate"
+    c = cands[0]
+    assert c["profile"] == "ms:lens-4-sample-optics"
+    assert c["because"] == "ms:.claude/agents/sample-optics.md#owns"
+    assert set(c["matched_terms"]) <= {"immersion", "coverslip"}
+    assert out["candidates_applied"] is False
+
+
+def test_the_unknown_profile_branch_gives_a_reason_not_a_menu(tmp_path):
+    """The branch §5.3 was written about.
+
+    It returned the known ids and nothing to choose by, which left the caller
+    needing to know the corpus before it could query the corpus. It still
+    refuses to guess -- the status is unchanged and no search was run under an
+    assumed profile -- but the refusal now carries a cited suggestion.
+    """
+    s = _server_with_profile(tmp_path)
+    out = _call(s, "kb_search",
+                {"question": "which immersion and coverslip",
+                 "caller_profile": "ms:lens-4"})
+    assert out["status"] == "unknown_profile"
+    assert "hits" not in out, "a rejected profile must not be searched under"
+    assert out["profile_candidates"][0]["profile"] == "ms:lens-4-sample-optics"
+    assert out["profile_candidates"][0]["because"].startswith("ms:.claude/agents/")
