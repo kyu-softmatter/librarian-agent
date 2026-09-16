@@ -306,6 +306,23 @@ So the citation is to a translation that quotes the id, not to the id's own
 declaration. `tests/test_rt.py` holds that line: a seventh BD idea rt does not
 carry fails the build rather than reading as grounds.
 
+> **Superseded by a decision, not yet by a fact.** The operator decided on
+> 2026-09-16 to **publish BD's design documents**, which makes the measurement
+> above a record of a window rather than a standing condition. The pull request
+> that would have narrowed rt's sentence was closed unmerged for that reason —
+> the sentence becomes true instead of being weakened.
+>
+> **What it unblocks is the adapter this section exists because of.** Once
+> `design/ideas.md` is on the remote, `bd_ideas` can do for `I-` what
+> `rt_ideas` does for `T-`/`C-`/`Q-`: the id as the locator, so `I-052`
+> resolves to its own declaration rather than to rt's translation of it. The
+> six citations get stronger without any of them changing.
+>
+> Until the push lands, everything below still holds, and
+> `tests/test_rt.py::test_every_bd_idea_this_repository_cites_is_reachable`
+> keeps passing either way — it asserts reachability, and reachability through
+> a translation is what there is today.
+
 **Three things this does not license.** It is not a reason to restate BD's
 ideas here — that would make this repository the third copy. It is not drift
 this repository can report, because `drift` compares a repository against

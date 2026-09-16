@@ -82,9 +82,13 @@ def test_every_rt_item_this_repository_cites_resolves(rt):
 def test_every_bd_idea_this_repository_cites_is_reachable(rt, tmp_path):
     """The same check for BD's ids -- and they resolve through rt, not BD.
 
-    **BD's `design/ideas.md` is not in its public repository.** Measured
+    **BD's `design/ideas.md` was not in its public repository.** Measured
     2026-09-16 against the GitHub tree for `main`: 2,587 paths, no `design/`,
-    and **no `I-NNN` token anywhere in the checkout**. rt states that
+    and **no `I-NNN` token anywhere in the checkout**. Publishing it was decided
+    the same day (PLAN.md §1.4c), so that is a record of a window. **This test
+    does not change when the push lands** -- it asserts that each cited id is
+    reachable, and an original is a better answer than a translation, not a
+    different assertion. rt states that
     *"quotations from BD's Korean design documents are translated. The
     originals are findable by ID in that repo"* -- which does not hold for the
     public repo, whatever is on the author's disk.
