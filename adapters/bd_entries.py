@@ -8,9 +8,12 @@ own coordinate -- `lessons.0`, `lessons.1`. Writing it as one document per file
 would work now and silently drop the second lesson the first time one is added.
 
 `origin` is carried through unchanged because MIGRATION.md 5 routes these files
-by it (`tooling` and `method` to `map/04-agents` or `06-simulation`, `handbook`
-derived from `07-sources/books`, `intake` to `06-simulation`, `paper` to
-`07-sources`). Collapsing it would throw away the migration key.
+by it (`tooling` and `method` to `06-simulation`, `handbook` derived from
+`07-sources/books`, `intake` to `06-simulation`, `paper` to `07-sources`).
+Collapsing it would throw away the migration key.
+
+That route used to read *"`map/04-agents` or `06-simulation`"*; the first half
+is gone with decision 38, which retired a layer nothing generated.
 
 Three fields are empty for every entry in the current checkout -- `run_id`,
 `case` and `outcome` -- which is the shape BD's own `tools/kb.py` accident left

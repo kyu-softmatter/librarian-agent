@@ -71,7 +71,7 @@ job to a person; the flag is what keeps a forgotten refresh from being silent.
    |  |                                                             |
    |  |   kb/        the one canonical store                        |
    |  |   index/     FTS5 . every hit carries repo@sha:path#locator |
-   |  |   map/       04-agents/ . ms . bd . rt . lib -- all four    |
+   |  |   map/       manifest -- the staleness reference            |
    |  |   profiles/  one per caller, versioned, applied server-side |
    +--+   store/     challenge . digest . inbox                     |
       +--------+---------------------------------------+------------+
@@ -285,16 +285,24 @@ endpoint several people reach independently, which is a question that now
 arrives with the separation rather than with BD.
 → [PLAN.md](PLAN.md) §3.5
 
-**And the four agents' own definitions are part of the store.**
-`map/04-agents/` already carries the microscope's five lenses with the gates each
-one owns, read from its `.claude/agents/`; BD's nine agents follow, then
-research-topic's two personas, and the fourth slot is **this** repository —
-generated from `profiles/` and the tool surface, because it has no `.claude/` of
-its own. That is what lets an answer say *which lens declares `G10`*, at a
-locator. It is deliberately **not** a way to guess which lens you are: the map
-supplies the correspondence and the caller makes the choice, because a guessed
-profile changes which evidence comes back and nothing in the answer shows that it
-was guessed. → [PLAN.md](PLAN.md) §3.6
+**And the agents' own definitions are part of the store.** The microscope's
+five lenses, with the gates each one owns, are read from its `.claude/agents/`
+into the index; BD's nine agents follow, then research-topic's two personas. The
+four repositories declare their agents in four different kinds of file, and
+**the adapters are where those forms are made comparable** — into the one row
+every hit is.
+
+That is what lets an answer say *which lens declares `G10`*, at a locator. It is
+deliberately **not** a way to guess which lens you are: the correspondence is
+returned and the caller makes the choice, because a guessed profile changes which
+evidence comes back and nothing in the answer shows that it was guessed.
+
+> A generated `map/04-agents/` folder was planned for this and is **retired** —
+> nothing ever generated it, and this paragraph used to say it *"already
+> carries"* the five lenses. A generated copy of an agent file would also give a
+> caller something to cite other than the declaration itself, which is the one
+> thing the layer existed to make possible → [map/README.md](map/README.md),
+> [PLAN.md](PLAN.md) §3.6
 
 ### Asking for the inputs to a calculation
 
@@ -385,7 +393,7 @@ None of these was read off a sentence that says so.
 | Turning "query both" into one query | BD calls its two unmerged knowledge schemas *"the largest piece of debt in the repository"*; indexing both is the read-side fix without merging either |
 | ~~One always-on server on the lab NAS~~ | **Dropped 2026-09-15.** It was forced by a second machine, and there is none — everything runs on the microscope PC. What is left in its place is a **concurrent-write policy**, which is a policy and not a host → [PLAN.md](PLAN.md) §3.4 |
 | `human:*` role profiles, and a `purpose` argument | people are the second caller class, and the first whose declared role nothing checks → [PLAN.md](PLAN.md) §3.5 |
-| `map/04-agents/lib/` — the fourth agent's own definitions | it is generated from `profiles/` and the tool surface, so it settles once the role profiles above do → [PLAN.md](PLAN.md) §3.6 |
+| ~~`map/04-agents/lib/`~~ — the fourth agent's own definitions | **Dropped.** `kb_search` already returns which profiles exist and what each declares it owns, with a citation; a committed file restating that is self-description with no reader → [map/README.md](map/README.md) |
 
 ### v3 — research-topic
 

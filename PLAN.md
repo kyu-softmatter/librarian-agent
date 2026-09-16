@@ -402,7 +402,7 @@ about (*"indexing is reversible; migration is not"*):
         │    05-physics 06-simulation 07-sources 08-retrieval       │
         │       │                                                   │
         │       ├──▶ index/kb.sqlite      ◆ FTS5 (trigram) + metadata         │
-        │       ├──▶ map/                 ◆ 04-agents · manifest    │
+        │       ├──▶ map/                 ◆ manifest                │
         │       └──▶ export/{ms,bd}/      ◆ read-only, sent back    │
         │                                                           │
         │  store/       ● published: challenge · digest · inbox     │
@@ -576,24 +576,33 @@ instead of a dead end. That is §0.2①'s product, pointed at a person.
 
 ### 3.6 The four agents are themselves in the corpus — and what that licenses
 
-Decided 2026-09-09. `map/04-agents/` already holds the structure and function of
-each (sub)agent: MS's five lenses with their owned gates and declared tools land
-there today through `adapters/ms_agents.py`, BD's nine agents in v2, RT's two
-personas in v3. Two things are added here — a slot for the **fourth repository**,
-this one, and the limit on what routing may do with any of them. §3.3 is
-untouched by either: what enters the map is this repository's profiles and tool
-surface, not a persona it does not have.
+Decided 2026-09-09. Each repository's (sub)agents are in the corpus: MS's five
+lenses with their owned gates and declared tools through
+`adapters/ms_agents.py`, BD's nine agents in v2, RT's two personas in v3. Two
+things are added here — the **fourth repository**, this one, and the limit on
+what routing may do with any of them. §3.3 is untouched by either: what enters
+the corpus is this repository's profiles and tool surface, not a persona it does
+not have.
 
-**The fourth slot is not another `.claude/agents/` read.** This repository has no
+> **This section said `map/04-agents/` "already holds" it, and no such folder
+> was ever generated.** Retired 2026-09-15, decision 38 — the reasoning is in
+> [map/README.md](map/README.md). What is corrected here is only the location:
+> **the four forms are made comparable by the adapters, into the one `Doc` row
+> §4.1 defines**, and that is where "the structure and function of each
+> (sub)agent" actually lives. Every claim below about what may and may not be
+> done with the correspondence stands unchanged, because none of them depended
+> on the artefact.
+
+**The fourth repository is not another `.claude/agents/` read.** This one has no
 `.claude/` directory at all. Its role declarations are `profiles/` — who may ask
 what, and how it is weighted — and `mcp_server/`'s tool surface with its
-instructions, which fix what may be answered. So `map/04-agents/lib/` is
-generated from those two, not from agent files that do not exist. That the four
-repositories declare their agents in **four different kinds of file** is the
-reason the map is a generated layer rather than a naming convention: it is where
-the four forms are made comparable.
+instructions, which fix what may be answered. What a caller needs from those
+comes back from `kb_search` itself: `known` on an unknown profile, and
+`profile_candidates` with a citation on any query (§5.3). A committed file
+restating them would be self-description with no reader, which is why decision 38
+dropped the `lib/` slot rather than filling it.
 
-**What the map licenses is the correspondence, not the choice.**
+**What the correspondence licenses is itself, not the choice.**
 
 | The librarian may | The librarian may not |
 |---|---|
@@ -613,11 +622,13 @@ it was guessed**, which is the same objection §3.2 raises to embeddings.
 field"* and *"who owns it"* are one question asked from two ends, which is the
 shape that tool already has (decision 25).
 
-**And self-description is not self-confirmation.** `map/04-agents/lib/` records
-which profiles exist and what each one weights. It does not let a retrieval
+**And self-description is not self-confirmation.** `kb_search` reports which
+profiles exist and what each one declares it owns. It does not let a retrieval
 result change a weight: the loop [FEEDBACK.md](FEEDBACK.md) §5 blocks is a
 *result* promoted to ground truth, and a weight changes only by an edit to a
-versioned file, with a human in the diff.
+versioned file, with a human in the diff. `tests/test_profiles.py` is what
+checks those files against the repository they point into — which a generated
+copy of them could not have done.
 
 ---
 
@@ -1184,7 +1195,7 @@ from a platform.
 | ~~One always-on service on the lab NAS~~ | **Dropped** (decisions 35 and 36). stdio stays correct through BD, and writes turned out to need no serialization — so a service returns only when the separation begins, if then |
 | The shared registration form (decision (i)) | One line, valid in all four `.mcp.json` files and in a person's client, with no absolute interpreter path in it |
 | `human:*` role profiles + `purpose` (decision 29) | A person's question and a lens's question return **different** top results from the same corpus, the way the lens pair already does ([BUILD.md](BUILD.md) §4-B) |
-| `map/04-agents/lib/` (decision 30) | Generated from `profiles/` and the tool surface, and a query for a term reports **which** profile declares it, with a locator — never which profile the asker meant (decision 31). The mechanism is §5.3's `profile_candidates` |
+| ~~`map/04-agents/lib/`~~ (decision 30) | **Dropped** by decision 38. The exit condition was *"a query for a term reports which profile declares it, with a locator"* — met by §5.3's `profile_candidates`, which cites the owner's own agent file rather than a generated copy of it |
 | ~~A second writer (decision (j))~~ | **Done** (decision 36, §3.7). Its exit condition was *"two concurrent writes leave the index in a state a full rebuild reproduces exactly"* — met by making the rebuild atomic and deterministic rather than by serializing anything, and asserted under real threads in `tests/test_record.py` |
 
 ### Not in scope
@@ -1261,7 +1272,7 @@ silently empty read is the same failure mode as an unwired checker."*
 | 27 | ~~Host for the always-on server~~ | ~~The lab NAS~~ — **superseded by 35** | Decided 2026-09-09 on §1.6's two-machine premise, and that premise was wrong. Kept rather than deleted: it is the second time this plan has been argued into extra machinery by a fact that was not checked (the first is §1.8's linters) |
 | 28 | How **people** reach it | **Their own MCP client.** The server returns cited evidence; the caller's model composes the answer | No synthesis layer, so decision 24 and §3.3 stand unchanged, and there is one server to keep up rather than two surfaces to keep equal (§3.5) |
 | 29 | Profile namespace for people | **Role and purpose** — `human:*` plus a `purpose` argument — **never per person** | Profiles multiply with kinds of question, not with people; and a person-keyed profile records who was looking for what in a public repository (§3.5①, §6.1) |
-| 30 | The fourth agent in `map/04-agents/` | **`lib/`, generated from `profiles/` and the tool surface** | This repository has no `.claude/agents/`; those two files are where its roles are actually declared (§3.6) |
+| 30 | ~~The fourth agent in `map/04-agents/`~~ | ~~`lib/`, generated from `profiles/` and the tool surface~~ — **superseded by 38** | The grounds were sound — this repository has no `.claude/agents/`, and `profiles/` plus the tool surface are where its roles are declared. The artefact was not: `kb_search` already returns both, with a citation |
 | 31 | What the agent map licenses | **The correspondence, not the choice** — report which lens owns a term; never infer the caller's profile | A guessed profile changes the evidence returned and nothing in the answer shows it was guessed (§3.6, §5.1) |
 | 32 | **Whether Librarian ever calls a source repository** | **Never.** It is an MCP *server* and never an MCP *client* of MS, BD or RT. Ingest stays one-directional: `git fetch`, and the sha becomes every hit's provenance | Confirmed 2026-09-15. Calling out breaks all three of §3.4's conditions at once — an answer would depend on another agent's session being up — and a two-way call has no depth bound, so the loop circulates doubt instead of topics (`C-001`). Edge 4 stays a routed file drop |
 | 33 | **How a caller finds its profile** | **Candidates returned with citations, never applied** — a return field of `kb_search`, keyed on each agent file's `owns`, with `candidates_applied: false`. **Built** `Index.profile_candidates` | Decided and built 2026-09-15, §5.3. Decision 31 forbids inferring the profile and says nothing about how a caller learns which to declare; this is that, without a model — the pick happens in the caller's transcript where it is visible |
@@ -1269,6 +1280,7 @@ silently empty read is the same failure mode as an unwired checker."*
 | 35 | **Where everything runs** | **The microscope PC — all four systems, one machine.** Separation is deferred until the system is understood well enough to be worth splitting | Decided 2026-09-15 by the operator; **supersedes 27** and retires §1.6's two-machine premise. BD's macOS is a development environment, not a deployment target: it passes CI and runs anywhere. The consequence is subtraction — stdio stays correct through BD, the NAS host is dropped, and decision (j) becomes the only remaining reason to want a service |
 | 36 | **Concurrent-write policy** | **None of the three offered.** Append-only records, named by a sha256 of their content, created by `os.link` from a complete temp file — idempotent under retry, atomic under concurrent read, and no rollup file for two writers to contend over | Decided and built 2026-09-15, §3.7; **closes open (j)**. All three mechanisms answer *"two writers want the same thing"*, and no write tool here wants the same thing. It also removes §3.4's second forcing function for a service, so after decision 35 **nothing requires one** |
 | 37 | **`publish-gate` scope for `sessions/`** | **`sessions/` local only and permanently; `oracles/` and `findings/` committed.** No raw query outside `oracles/`, and no record names a person | Decided and built 2026-09-15, §6.1; **closes open (a)**. Hashing the query makes an oracle unrunnable (FEEDBACK decision 3); committing as-is cannot be undone (rt `T-019`). The split works because promotion is human-approved already, and that approval is the disclosure review — declared in `librarian/publish.py`, and the `.gitignore` is asserted to agree with it |
+| 38 | **`map/04-agents/`** | **Retired.** The four declaration forms are made comparable by the adapters, into the one `Doc` row §4.1 defines; a generated rendering of an agent file would give a caller something to cite other than the declaration. **Supersedes 30, closes open (n)** | Decided 2026-09-15, [map/README.md](map/README.md). Six documents described the folder and nothing ever generated it — three empty directories and no `lib/`, while `README.md` said it *"already carries the microscope's five lenses."* A described artefact that never existed is one step worse than BD's `INDEX.md`, which at least has the file |
 
 ### Open — decided when the work reaches them
 
@@ -1284,7 +1296,6 @@ silently empty read is the same failure mode as an unwired checker."*
 | k | Whether the claim-extraction axes — `validity` · `durability` · `operational` · `controversy_id` — enter the index as columns | `kb_search`'s `require` parameter. None of the four exists in any of the three repositories yet; if they land they arrive **opt-in per query**, never as profile filters, for §5.1's reason |
 | l | **Whether the service verifies a `caller_profile` claim**, or accepts it as declared | An endpoint several people reach independently (§3.5②). **Its trigger moved with decision 35**: not BD's arrival, but the separation — trusted agents and one operator on one machine never raise it |
 | m | **The `human:*` role set** — which roles exist, and who writes them | the first caller who is not the author (§3.5①) |
-| n | Whether **owner** becomes an end of `kb_supplies`, or `map/04-agents/` is read directly | routing from the agent map (§3.6) |
 
 ---
 

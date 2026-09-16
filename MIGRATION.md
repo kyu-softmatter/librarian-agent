@@ -199,7 +199,7 @@ Measured file counts. **`runs/` and `research-topic` are not migrated.**
 | `wiki/findings/` | 23 | `kb/05-physics/findings/` · `kb/06-simulation/findings/`, split by the engine-swap test |
 | `wiki/questions/` | 2 | `kb/0X/questions/` |
 | `wiki/CLAUDE.md` | 1 | **Contract absorbed** into `kb/README.md`. Not a file move |
-| `entries/*.json` | 135 | By `origin`: `tooling` 52 · `method` 45 → `map/04-agents` or `06-simulation` · `handbook` 25 → derived from `07-sources/books` · `intake` 10 → `06-simulation` · `paper` 3 → `07-sources` |
+| `entries/*.json` | 135 | By `origin`: `tooling` 52 · `method` 45 → `06-simulation` · `handbook` 25 → derived from `07-sources/books` · `intake` 10 → `06-simulation` · `paper` 3 → `07-sources` |
 | `runs/*/record.json` | 227 | **Not migrated.** Run provenance is BD's — the index only. There are **256** run directories; 29 hold no post-mortem |
 
 ### `research-topic`

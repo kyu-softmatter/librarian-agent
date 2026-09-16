@@ -15,8 +15,16 @@ subject ([../TREE.md](../TREE.md) §3).
 
 The seven categories this store was asked for included *the structure and
 function of each (sub)agent*. That one is **derived** — a commit to any source
-repository makes it stale — so it lives at `map/04-agents/` and is regenerated in
-full, never hand-edited.
+repository makes it stale — so it is not stored here at all: the adapters read
+each repository's own agent files into the index on every rebuild, and a hit
+cites the declaration at its locator.
+
+> It used to say *"it lives at `map/04-agents/`"*. That folder was retired
+> 2026-09-15 (decision 38) because nothing generated it, and because a generated
+> rendering would give a caller a copy to cite instead of the declaration
+> → [../map/README.md](../map/README.md). **The reason `04` is absent has not
+> changed** — derived material does not sit beside hand-edited material — only
+> the place the derived material actually is.
 
 **The gap in the numbering is the marker for that rule.** A folder that a human
 may edit and a folder a generator overwrites cannot sit on the same level: the
@@ -93,7 +101,7 @@ so on a mixed macOS/Windows setup the same file looks like two.
 | [`01-materials/`](01-materials/) | ✅ | five slots |
 | [`02-hardware/`](02-hardware/) | ✅ | five slots |
 | [`03-control/`](03-control/) | ✅ | five slots |
-| `04` | — | **absent by design** -> `map/04-agents/` |
+| `04` | — | **absent by design** -> derived into the index by the adapters, never stored |
 | [`05-physics/`](05-physics/) | v2 | five slots |
 | [`06-simulation/`](06-simulation/) | v2 | five slots |
 | [`07-sources/`](07-sources/) | ✅ | `papers/` `books/` `raw/` |

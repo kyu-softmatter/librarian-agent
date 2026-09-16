@@ -1,9 +1,18 @@
-"""MS `.claude/agents/*.md` -- the lens definitions, for `map/04-agents/ms/`.
+"""MS `.claude/agents/*.md` -- the lens definitions, into the index.
 
-This is the only adapter whose output is **derived**: agent definitions change
-with every commit, so what it produces is regenerated in full and never
-hand-edited (`TREE.md` 2-A). It is also the adapter that records the fact the
-whole `export/` decision rests on:
+**This is the layer that makes four declaration forms comparable**, and it is
+the whole of that layer: MS's five lenses become `kind=agent` rows, BD's nine
+agents and rt's two personas arrive through their own adapters, and the
+comparison happens in the one `Doc` shape they all land in.
+
+It used to say *"for `map/04-agents/ms/`"*. Decision 38 retired that folder --
+nothing ever generated it, and a generated rendering of an agent file would give
+a caller something to cite other than the declaration itself. `kb_search`'s
+`profile_candidates` cites `ms@sha:.claude/agents/<lens>.md#owns`, the owner's
+own file, which is what the map layer was for.
+
+It is also the adapter that records the fact the whole `export/` decision rests
+on:
 
     tools: Read, Grep, Glob
 

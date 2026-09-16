@@ -90,7 +90,7 @@ people give the same answer.
 | What | Where it actually lives | Where it goes |
 |---|---|---|
 | (a) **The instrument control stack** — MicroManager `.cfg`, the piezo command set, LUNF/DAQ | MS `config/micromanager/`, `reference/npcd-command-set.md` | **`03-control`** |
-| (b) **MS's own agent code** — 8 gate modules, G1–G32 | MS `optics/`, `sample/`, `compute/`, … | **`map/04-agents`** (derived) |
+| (b) **MS's own agent code** — 8 gate modules, G1–G32 | MS `optics/`, `sample/`, `compute/`, … | **derived into the index** by the adapters, on every rebuild. A `map/04-agents/` folder was planned for this and retired (decision 38) |
 | (c) **The analysis code** — `D:\codes` | outside every repo; only MS lens 6 reads it | **deferred to v2** (§6) |
 
 (c) is the awkward one. MS `.claude/agents/measurement-validity.md` defines lens
@@ -128,11 +128,8 @@ librarian-agent/
 │                              → schema and rules: FEEDBACK.md
 │
 ├── map/                   ◆ DERIVED. Regenerated in full. Never hand-edited
-│   ├── 04-agents/             ← 4 structure and function of each (sub)agent
-│   │   ├── ms/                    5 lenses · 8 gate modules · G1–G32
-│   │   ├── bd/                    9 agents · 6 skills · 4 rules · A1–A10   [v2]
-│   │   └── rt/                    personas V1·V2 · J1–J3 · the boundary table [v3]
-│   └── manifest.json          {repo: sha, built_at, doc_count}
+│   └── manifest.json          {repo: sha, doc_count, schema_version}
+│                              04-agents/ was here — retired, decision 38
 │
 ├── index/                 ◆ DERIVED. Delete and rebuild loses nothing
 │   └── kb.sqlite              FTS5 (trigram) + metadata
@@ -299,7 +296,7 @@ not a PDF archive.*
 | 1 | materials | `kb/01-materials/` | unchanged |
 | 2 | microscope hardware | `kb/02-hardware/` | unchanged |
 | 3 | microscope software | `kb/03-control/` | **narrowed** — the control stack only. Agent code → 4; analysis code → v2 |
-| 4 | (sub)agent structure | `map/04-agents/` | **moved zone** — derived, not canonical |
+| 4 | (sub)agent structure | the index, via the adapters | **moved zone** — derived, not canonical. The destination was `map/04-agents/` until decision 38 retired it; the zone rule is unchanged, the destination is not |
 | 5 | physical phenomena | `kb/05-physics/` | **boundary rule added** — the engine-swap test |
 | 6 | simulation | `kb/06-simulation/` | the other side of the same rule |
 | 7 | key literature and books | `kb/07-sources/` | **split three ways** — `papers/` · `books/` · `raw/` (gitignored) |

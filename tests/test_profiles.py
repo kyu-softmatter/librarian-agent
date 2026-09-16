@@ -172,8 +172,8 @@ def test_candidates_land_on_the_lens_that_declares_the_question(ms, tmp_path):
 def test_a_candidate_cites_the_agent_file_and_not_the_profile(ms, tmp_path):
     """Rule 2. A profile listing a term is this repository describing itself.
 
-    `map/04-agents/lib/` records which profiles exist and what each weights; it
-    does not license a claim about ownership. The licence is MS's own
+    `kb_search` reports which profiles exist and what each weights; that does
+    not license a claim about ownership. The licence is MS's own
     `.claude/agents/`, at a locator that `kb_get` resolves.
     """
     idx = _index(ms, tmp_path)

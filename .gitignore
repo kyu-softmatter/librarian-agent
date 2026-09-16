@@ -11,8 +11,6 @@ index/
 *.sqlite-shm
 *.sqlite-wal
 map/manifest.json
-map/04-agents/*/*
-!map/04-agents/*/.gitkeep
 export/ms/*
 export/bd/*
 !export/*/.gitkeep

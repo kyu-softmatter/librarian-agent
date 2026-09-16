@@ -192,7 +192,7 @@ constraint ④ forbids. Migration starts when all of the following pass.
 |---|---|
 | Subject folder shape | The five subject folders (`01` `02` `03` `05` `06`) share the same five slots — `cards` · `evidence/{measured,assumed}` · `findings` · `questions`. `00-decisions`, `07-sources` and `08-retrieval` declare their own shape and no cards ([TREE.md](TREE.md) §4) |
 | Schema formality | Fields used for branching, routing or a verdict contain **no prose** — enum, number, ID or boolean only |
-| ✅ Regeneration | Delete `index/` and `map/` entirely, rebuild, **byte-identical**. Achieved literally rather than weakened: rows are sorted by uid before insert and **no timestamp is written**, since the commit SHA already identifies what the index was built from |
+| ✅ Regeneration | Delete `index/` and `map/manifest.json`, rebuild, **byte-identical** — re-verified 2026-09-15. Achieved literally rather than weakened: rows are sorted by uid before insert and **no timestamp is written**, since the commit SHA already identifies what the index was built from. It read *"delete `index/` and `map/` entirely"*, which was true only of the manifest: `map/04-agents/` was never generated and is retired (decision 38), and `map/README.md` is hand-written |
 | The empty-query state | A query against an empty `kb/` returns **`searched_empty` explicitly**, never a bare 0 |
 | Coordinates mandatory | No code path can return a hit without `repo@sha:path#locator` |
 | Non-zero per source | Each adapter asserts a non-zero document count for its source; a source dropping to zero **fails the build** (§1) |

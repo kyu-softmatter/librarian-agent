@@ -13,7 +13,7 @@ Hard-code a path and the next folder rename produces a silently empty read.
 | MS `kb/` | entry frontmatter; `literature/_template.md`; `plans/` and `sessions/` pinned to no evidence tier; generated `kb/INDEX.md` excluded | ✅ |
 | MS `data/*.yaml` | the registry field a gate consumes, and whether it is empty | ✅ |
 | MS `docs/` | section anchors as locators | ✅ |
-| MS `.claude/agents/` | lens number, owned gates, declared tools -> `map/04-agents/ms/` | ✅ |
+| MS `.claude/agents/` | lens number, owned gates, declared tools. **This is the layer that makes four declaration forms comparable** — into one `Doc`, not into a generated folder (decision 38) | ✅ |
 | BD `wiki/` | `knowledge/wiki/CLAUDE.md` frontmatter contract, read from the file | ✅ |
 | BD `source/` | the same contract's `source_frontmatter_*` and `source_kinds` | ✅ |
 | BD `entries/` | `bdbot.kb_entry/0.1`, decomposed over `lessons[]` | ✅ |
