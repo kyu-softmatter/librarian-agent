@@ -1,4 +1,4 @@
-"""MS `kb/` -- five stores, three different shapes.
+"""MS `kb/` -- seven stores, three different shapes.
 
 The shapes differ and that is not untidiness: MS separates them by **how a value
 was arrived at**, and the folder is part of the tier. `kb/calibrations/`
@@ -10,6 +10,17 @@ in is read as evidence and cross-checked against its frontmatter.
   expertise/     markdown + frontmatter             -> evidence from frontmatter
   systems/       markdown, frontmatter on some      -> a dossier is a card
   decisions/     markdown, **no frontmatter**       -> date and slug come from the name
+  plans/         markdown + frontmatter             -> evidence: None, always
+  sessions/      markdown + frontmatter             -> evidence: None, always
+
+`plans/` and `sessions/` are the two stores that are **not** a tier. A plan is
+a proposal for a run that has not happened and states its own unknowns as
+BLOCKED; a session log is what a working day recorded, failures included.
+Neither is a measurement, so neither gets one -- they are pinned to
+`evidence: None` below rather than reading a tier out of frontmatter, because a
+plan quoting a calibrated number is still a plan. They are indexed because they
+are where the *question* a run exists to answer is written down, which nothing
+else in `kb/` holds.
 """
 
 from __future__ import annotations
@@ -54,7 +65,15 @@ FOLDER_KIND = {
     "expertise": "expertise",
     "systems": "system",
     "decisions": "decision",
+    "plans": "plan",
+    "sessions": "session",
 }
+
+# The stores whose entries are never evidence, whatever their frontmatter says.
+# `_md_docs` reads `evidence:` from frontmatter for every other folder; here the
+# folder overrides it, which is the same rule as FOLDER_EVIDENCE running the
+# other way.
+FOLDER_NO_EVIDENCE = frozenset({"plans", "sessions"})
 
 
 def _md_docs(path: Path, rel: str, folder: str, sha: str) -> list[Doc]:
@@ -62,9 +81,12 @@ def _md_docs(path: Path, rel: str, folder: str, sha: str) -> list[Doc]:
     fm, body = frontmatter(text)
     falsifier = has_falsifier(text)
 
-    evidence = _value(fm.get("evidence")) or FOLDER_EVIDENCE.get(folder)
-    if evidence not in {"measured", "assumed", "confirmed_default", None}:
+    if folder in FOLDER_NO_EVIDENCE:
         evidence = None
+    else:
+        evidence = _value(fm.get("evidence")) or FOLDER_EVIDENCE.get(folder)
+        if evidence not in {"measured", "assumed", "confirmed_default", None}:
+            evidence = None
 
     review = _value(fm.get("review_after"))
     # A level-1 heading, else what the frontmatter declares. `question` is the

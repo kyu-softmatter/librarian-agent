@@ -24,6 +24,13 @@ kind_weight:
   decision:         0.8
   system:           0.7
   agent:            0.5
+  # Declared, not defaulted. An unlisted kind scores 1.0
+  # (librarian/index.py:604), which would have put a plan and a session log
+  # above `decision` and `system` by omission. A plan is a proposal for a run
+  # that has not happened and a session log is narrative; neither outranks a
+  # decision record here.
+  plan:             0.7
+  session:          0.5
 
 boost:
   gate: [G10, G20, G21, G22]

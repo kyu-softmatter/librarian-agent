@@ -10,7 +10,7 @@ Hard-code a path and the next folder rename produces a silently empty read.
 
 | Source | Contract to parse | v1 |
 |---|---|---|
-| MS `kb/` | entry frontmatter; `literature/_template.md` | ✅ |
+| MS `kb/` | entry frontmatter; `literature/_template.md`; `plans/` and `sessions/` pinned to no evidence tier; generated `kb/INDEX.md` excluded | ✅ |
 | MS `data/*.yaml` | the registry field a gate consumes, and whether it is empty | ✅ |
 | MS `docs/` | section anchors as locators | ✅ |
 | MS `.claude/agents/` | lens number, owned gates, declared tools -> `map/04-agents/ms/` | ✅ |
@@ -28,21 +28,27 @@ error severity on every run instead.
 
 ## Built, and what it produces
 
-Measured 2026-09-09 against `agentic-microscope` @ `fbedef0` and
-`Brownian-Dynamics-Agent` @ `ad1267b`:
+Measured 2026-09-15 against `agentic-microscope` @ `9f971a8` and
+`Brownian-Dynamics-Agent` @ `a18e171`:
 
 | Adapter | Files | Documents |
 |---|---|---|
-| `ms_kb` | 45 | 298 |
+| `ms_kb` | 51 | 370 |
 | `ms_data` | 8 | 86 |
 | `ms_docs` | 10 | 95 |
 | `ms_agents` | 5 | 75 |
-| **ms** | **68** | **554** |
-| `bd_wiki` | 45 | 370 |
+| **ms** | **74** | **626** |
+| `bd_wiki` | 49 | 402 |
 | `bd_source` | 45 | 273 |
-| `bd_entries` | 144 | 144 |
-| **bd** | **234** | **787** |
-| **one index** | **302** | **1341** |
+| `bd_entries` | 145 | 145 |
+| **bd** | **239** | **820** |
+| **one index** | **313** | **1446** |
+
+**63 of `ms_kb`'s 72 new documents come from two stores MS added and this
+adapter did not know**: `kb/plans/` (29) and `kb/sessions/` (34). The rest are
+entries upstream added to stores already covered. Both new stores were being
+skipped in silence until the coverage check named their files, which is that
+check earning its keep rather than a clean result.
 
     python -m librarian.cli scan    --repo ms
     python -m librarian.cli reindex --repo ms --repo bd

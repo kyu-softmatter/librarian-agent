@@ -23,6 +23,10 @@ KINDS = frozenset({
     "card", "measured", "assumed", "finding", "question", "decision", "source",
     # MS store kinds, kept as-is until migration reclassifies them
     "expertise", "calibration", "system", "literature_form",
+    # MS's two narrative stores. Neither is a tier: a `plan` is a proposal for
+    # a run that has not happened, a `session` is what a working day recorded.
+    # Both carry `evidence: None`, so neither can advance a verdict.
+    "plan", "session",
     # machine-readable inputs
     "registry", "doc_section", "agent",
     # Librarian's own

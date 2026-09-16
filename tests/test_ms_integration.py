@@ -24,6 +24,40 @@ def test_every_candidate_file_yields_a_document(ms):
     assert dropped == [], f"{len(dropped)} candidate files produced nothing"
 
 
+def test_the_two_narrative_stores_are_indexed_and_cannot_advance(ms):
+    """`kb/plans/` and `kb/sessions/` are read, and neither is a tier.
+
+    The coverage check above is what caught them being skipped: MS added both
+    stores and `ms_kb` knew five folders, so seven files yielded nothing in
+    silence. Indexing them is only half the fix -- a plan quotes calibrated
+    numbers and a session log quotes measurements, and either would advance a
+    verdict on the strength of a quotation if the folder read its frontmatter
+    for a tier. They are pinned to `evidence=None` instead, so `advances` is
+    false by derivation rather than by every file happening to omit the field.
+    """
+    docs = [d for d in scan(ms).docs if d.kind in {"plan", "session"}]
+    kinds = {d.kind for d in docs}
+    assert kinds == {"plan", "session"}, kinds
+    assert all(d.path.startswith(("kb/plans/", "kb/sessions/")) for d in docs)
+    assert all(d.evidence is None and d.tier is None for d in docs)
+    assert not any(d.advances for d in docs)
+
+
+def test_the_generated_kb_index_is_not_a_candidate(ms):
+    """`kb/INDEX.md` repeats no value, so a hit in it could not be cited.
+
+    It is generated from the other entries' frontmatter and states, of itself,
+    that a line in it is never a citation. Excluded in `librarian/scan.py`
+    rather than left to yield nothing, because those two look identical in a
+    scan report and mean opposite things.
+    """
+    from librarian.scan import CANDIDATES
+    cands = {p.relative_to(ms).as_posix() for p in CANDIDATES["ms_kb"](ms)}
+    assert (ms / "kb" / "INDEX.md").is_file(), "the file itself should still be there"
+    assert "kb/INDEX.md" not in cands
+    assert "kb/literature/_template.md" in cands, "a template is still an entry form"
+
+
 def test_no_error_findings_and_no_coordinate_collisions(ms):
     rep = scan(ms)
     assert [f for f in rep.findings if f.severity == "error"] == []
@@ -55,30 +89,52 @@ def test_only_measurements_advance(ms):
 
 # --- gaps: v1's primary product --------------------------------------------
 
-def test_the_two_known_blockers_are_found(ms):
-    """Both are stated by MS in prose; here they are derived from the files.
+def test_the_two_known_blockers_have_both_been_retired(ms):
+    """This test asserted the opposite until 2026-09-15, and MS moved under it.
 
-    `docs/07` Phase 0 calls `power_at_sample_mw` *"the largest effect, still the
-    top blocker"*, and `photo/gate.py` says `bleach_photons` is absent for every
-    dye. Neither string is read by this code.
+    It read: `bleach_photons` is missing for all 17 dyes under `G10`, and
+    `power_at_sample_mw` is empty for every light source -- the two blockers
+    `docs/07` Phase 0 named in prose, derived here from the files instead.
+
+    Both were retired upstream, separately:
+
+      * **`bleach_photons` is no longer gated.** `photo/checks.py` records that
+        G10 was **removed on 2026-09-09**, having never returned anything;
+        `docs/04-decision-engine.md` §6 keeps the formulas and says why. A
+        field no gate declares produces no gap row, so the 17 rows are gone --
+        not filled, *unasked*. That is the distinction this test now holds.
+      * **`power_at_sample_mw` is partly measured.** `data/light_sources.yaml`
+        carries values for the Cyan and Green bands at 4x/10x/20x.
+
+    What is left derivable is asserted below. Were G10 restored, or the
+    measurement lost, this fails again -- which is the point of pinning it.
     """
     rows = gaps(ms)
     by_field: dict[tuple[str, str], list] = {}
     for g in rows:
         by_field.setdefault((g.registry, g.field), []).append(g)
 
-    bleach = by_field[("data/fluorophores.yaml", "bleach_photons")]
-    assert len(bleach) == 17 and not any(g.present for g in bleach)
-    assert bleach[0].gate == "G10"
+    assert ("data/fluorophores.yaml", "bleach_photons") not in by_field
+    assert ("data/light_sources.yaml", "power_at_sample_mw") not in by_field
+    assert "G10" not in {g.gate for g in rows}
 
-    power = by_field[("data/light_sources.yaml", "power_at_sample_mw")]
-    assert power and not any(g.present for g in power)
+    # The one gated field still short of its registry, and the one gap that
+    # never had a gate: neither is BLOCKED, because both are partly filled.
+    lifetime = by_field[("data/fluorophores.yaml", "lifetime_ns")]
+    assert len(lifetime) == 17 and lifetime[0].gate == "G20"
+    assert sum(g.present for g in lifetime) == 11
+
+    source = by_field[("data/particles.yaml", "source")]
+    assert sum(g.present for g in source) == 4 and len(source) == 8
 
 
 def test_gates_are_read_from_their_own_docstrings(ms):
     fns = gate_functions(ms)
     ids = {f.gate for f in fns}
-    assert {"G10", "G15", "G20"} <= ids
+    # G10 was here and was removed upstream on 2026-09-09 (photo/checks.py).
+    # G20 stands in for photo/, so the assertion still spans three modules.
+    assert {"G15", "G20", "G22"} <= ids
+    assert "G10" not in ids
     # optics states its checks as questions and carries no gate id, so it
     # contributes nothing -- the reason G2/G3/G4 show up as drift below.
     assert "optics" not in {f.module for f in fns}
@@ -305,14 +361,23 @@ def test_trap_stiffness_inputs_resolve_where_the_repository_declares_them(ms, tm
         idx.close()
 
 
-def test_the_trap_laser_power_field_is_blocked_everywhere(ms, tmp_path):
-    """`power_at_sample_mw` is empty for all six sources, `Trap` among them."""
+def test_the_trap_laser_power_is_unknown_now_rather_than_blocked(ms, tmp_path):
+    """`unknown` and `blocked` are different answers, and this field moved.
+
+    It used to be `blocked`: `power_at_sample_mw` was empty for all six
+    sources, `Trap` among them. Two upstream changes separate those states --
+    values were measured for some bands, and G10's removal on 2026-09-09 left
+    no gate declaring the field at all. With no gate row to cover it, there is
+    nothing to call BLOCKED, so the status is `unknown`: nobody is asking.
+
+    `Trap` itself is still empty, which is the part that did not change.
+    """
     idx, _ = _index(ms, tmp_path)
     try:
         out = idx.supplies("power_at_sample_mw")
-        assert out["status"] == "blocked"
-        assert out["coverage"][0]["filled"] == 0
-        assert any(e["entry"].endswith(".Trap") for e in out["entries"])
+        assert out["status"] == "unknown"
+        assert out["coverage"] == []
+        assert out["mentioned_in"], "the field is still named in the registry"
     finally:
         idx.close()
 

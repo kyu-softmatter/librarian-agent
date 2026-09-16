@@ -21,8 +21,14 @@ from librarian.doc import Doc, Finding
 
 # Candidate files per source, enumerated independently of the adapter.
 CANDIDATES = {
+    # `kb/INDEX.md` is generated from the other files' frontmatter and repeats
+    # no value, conclusion or quotation -- MS's own rule is that a line in it is
+    # never a citation. Indexing it would return a pointer where the caller
+    # asked for evidence, so it is excluded here rather than silently yielding
+    # nothing inside the adapter.
     "ms_kb": lambda r: [p for p in sorted((r / "kb").rglob("*"))
-                        if p.is_file() and p.suffix in {".md", ".yaml", ".yml"}],
+                        if p.is_file() and p.suffix in {".md", ".yaml", ".yml"}
+                        and p.relative_to(r).as_posix() != "kb/INDEX.md"],
     "ms_data": lambda r: sorted((r / "data").glob("*.yaml")),
     "ms_docs": lambda r: sorted((r / "docs").rglob("*.md")),
     "ms_agents": lambda r: sorted((r / ".claude" / "agents").glob("*.md")),
