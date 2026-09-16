@@ -19,7 +19,44 @@ as absent rather than as a value.
 
 | Draft | For | Missing |
 |---|---|---|
-| [`lifetime-ns-tritc.md`](lifetime-ns-tritc.md) | `ms:kb/literature/lifetime-ns-tritc.md` — the folder's **first** entry | the value, `citation`, `doi`, `filed_by` |
+| [`lifetime-ns-tritc.md`](lifetime-ns-tritc.md) | `ms:kb/literature/lifetime-ns-tritc.md` — the folder's **first** entry | the **value** and the condition it is taken at · `filed_by` · `date` · `review_after` |
+
+## The source, and why the citation is filled and the value is not
+
+The operator supplied **`10.1177/43.7.7608524`** — Brismar, Trepte & Ulfhake,
+*J Histochem Cytochem* 43(7):699-707, 1995, *"Spectra and fluorescence lifetimes
+of lissamine rhodamine, tetramethylrhodamine isothiocyanate, texas red, and
+cyanine 3.18 fluorophores."* **TRITC is tetramethylrhodamine isothiocyanate**,
+so this paper measures the quantity directly, and it does so **on a confocal
+laser scanning microscope** — the same instrument class as this one's CSU-W1,
+which is unusually close for a literature value.
+
+**The citation and DOI are filled because they came from Crossref**, the
+registry of record. The value is not, because the paper is closed access
+(OpenAlex `oa_status: closed`; the publisher returns 403) and its abstract
+states that lifetimes were recorded without giving them.
+
+**And the paper does not report one lifetime.** Its abstract's own finding is
+that *"pH changes, IgG conjugation, and tissue embedding procedures all
+influenced fluorescence characteristics"*, and its conclusion proposes the
+lifetime as a probe *of* the chemical environment. So filing it means choosing a
+row and saying which — which matters here rather than being bookkeeping: G20's
+verdict turns on a factor of two in tau, and that is inside the range those
+three factors move it across.
+
+## The second DOI is a different entry, and probably not this folder
+
+`10.1002/jemt.22349` — Nanguneri et al., *Microsc Res Tech* 77(7):510-516,
+2014, on **tryptophan-quenching-induced photoswitching of phalloidin-fluorophore
+conjugates**. That bears on `Phal647`, another of the five dyes missing
+`lifetime_ns`, but its subject is photoswitching in aqueous buffer rather than a
+lifetime.
+
+MS's own rule decides where it goes: *"If no gate consumes a number from it, it
+is not knowledge this system can act on. Method papers that shape a judgment
+belong in `kb/expertise/` as a captured prior, with the paper cited inside."*
+Unless it reports a number `data/fluorophores.yaml` carries, it is an expertise
+entry, not a literature one.
 
 ## Why TRITC, and why `lifetime_ns`
 
