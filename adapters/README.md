@@ -18,6 +18,7 @@ Hard-code a path and the next folder rename produces a silently empty read.
 | BD `source/` | the same contract's `source_frontmatter_*` and `source_kinds` | ✅ |
 | BD `entries/` | `bdbot.kb_entry/0.1`, decomposed over `lessons[]` | ✅ |
 | BD `runs/` | `bdbot.record/0.1` — index only, never migrated | v2 |
+| ~~BD `design/ideas.md`~~ | ~~the `I-` item log, as `rt_ideas` does for rt's~~ | **absent** — the repository has no `design/` and no `I-NNN` token in 2,587 paths. The six ideas cited here resolve through rt's translations → [../PLAN.md](../PLAN.md) §1.4c |
 | RT `design/ideas.md` | the item log's own *"Rules for this document"* — one document per `T-`/`C-`/`Q-` id, **and the ID is the locator** | ✅ |
 | RT `README.md` + `design/` | section anchors; `personas/V[12]-*.md` as agents, keyed on the pole | ✅ |
 

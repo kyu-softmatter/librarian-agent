@@ -270,6 +270,51 @@ The status is recovered from the vocabulary the file declares for itself, and
 from nothing else; a conflict whose status is unknown reads exactly like one
 nobody recorded.
 
+### 1.4c BD's idea log is not in BD, and the citations resolve through rt
+
+Measured 2026-09-16. The obvious next move after §1.4b was to do for BD's
+`design/ideas.md` what `rt_ideas` did for rt's: this repository cites `I-052`,
+`I-053`, `I-076` and `I-133` as grounds, and none of them resolved.
+
+**There is no such file.** The GitHub tree for `Brownian-Dynamics-Agent@main`
+holds **2,587 paths and no `design/`**, and a grep over the whole checkout finds
+**no `I-NNN` token at all**. Its `.gitignore` excludes trajectories, run
+binaries and `knowledge/raw/lab/`; it does not exclude a design folder, because
+there is not one to exclude.
+
+**rt asserts otherwise**, in the rules at the head of its own `ideas.md`:
+*"Quotations from BD's Korean design documents are translated. The originals
+are findable by ID in that repo."* That does not hold for the public
+repository, whatever is on the author's disk — and it is the same shape of
+claim as §1.4's `provides:` array, generalized from what the author could see
+rather than from what a reader can reach.
+
+**What exists instead is better than nothing and worse than an original.** All
+six BD ideas this repository cites are carried by rt, translated, with the BD
+id attached:
+
+| cited here | resolves to |
+|---|---|
+| `I-050` | `rt:design/ideas.md#T-005` |
+| `I-052` | `rt:design/ideas.md#T-007` |
+| `I-053` | `rt:design/kb-schema.md#5-the-search-index` |
+| `I-075` | `rt:design/ideas.md#T-030` |
+| `I-076` | `rt:design/kb-schema.md#kb-formal-objects-j1-s-schema` |
+| `I-133` | `rt:design/ideas.md#T-031` |
+
+So the citation is to a translation that quotes the id, not to the id's own
+declaration. `tests/test_rt.py` holds that line: a seventh BD idea rt does not
+carry fails the build rather than reading as grounds.
+
+**Three things this does not license.** It is not a reason to restate BD's
+ideas here — that would make this repository the third copy. It is not drift
+this repository can report, because `drift` compares a repository against
+itself and the missing document is in neither. And it is not a challenge:
+`kb_challenge_raise` needs `falsifier_cited` pointing into the target's own
+falsification condition, and a documentation claim that turns out to be
+unreachable has none. **It is a pull request to research-topic**, narrowing one
+sentence.
+
 ### 1.5 The fourth convergence — enforceable at the transport layer
 
 All three repos independently reached the same rule: **a published number is

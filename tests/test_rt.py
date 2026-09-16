@@ -79,6 +79,57 @@ def test_every_rt_item_this_repository_cites_resolves(rt):
                     for k, v in sorted(missing.items())))
 
 
+def test_every_bd_idea_this_repository_cites_is_reachable(rt, tmp_path):
+    """The same check for BD's ids -- and they resolve through rt, not BD.
+
+    **BD's `design/ideas.md` is not in its public repository.** Measured
+    2026-09-16 against the GitHub tree for `main`: 2,587 paths, no `design/`,
+    and **no `I-NNN` token anywhere in the checkout**. rt states that
+    *"quotations from BD's Korean design documents are translated. The
+    originals are findable by ID in that repo"* -- which does not hold for the
+    public repo, whatever is on the author's disk.
+
+    So the six BD ideas this repository cites as grounds -- `I-050`, `I-052`,
+    `I-053`, `I-075`, `I-076`, `I-133` -- are reachable only through rt, which
+    quotes and translates each with the BD id attached. That is a weaker
+    citation than an original and it is a real one: `rt@sha:design/ideas.md#T-007`
+    resolves and says what `I-052` claimed, while `bd:design/ideas.md#I-052`
+    does not exist.
+
+    This test is what keeps that true. Cite a seventh BD idea rt does not carry
+    and it fails here, rather than the citation reading as grounds.
+    """
+    import re
+
+    from librarian.gaps import gaps as compute_gaps
+    from librarian.index import NEUTRAL, Index, build
+    from librarian.links import extract
+    from librarian.scan import scan
+
+    cited: dict[str, set[str]] = {}
+    for p in _own_docs() + [q for d in ("librarian", "adapters", "mcp_server")
+                            for q in sorted((ROOT / d).rglob("*.py"))]:
+        rel = p.relative_to(ROOT).as_posix()
+        for m in re.finditer(r"\bI-\d{3}\b", p.read_text(encoding="utf-8")):
+            cited.setdefault(m.group(0), set()).add(rel)
+    assert cited, "this repository cites no BD ideas; the regex or the prose moved"
+
+    rep = scan(rt)
+    idx_path = tmp_path / "kb.sqlite"
+    build(rep.docs, idx_path, {"rt": rep.sha},
+          extract(rep.docs, rep.repo_files, rep.source_text), compute_gaps(rt))
+    idx = Index(idx_path)
+    try:
+        unreachable = {k: sorted(v) for k in sorted(cited)
+                       if not idx.search(k, NEUTRAL, limit=1).hits
+                       for v in [cited[k]]}
+    finally:
+        idx.close()
+    assert unreachable == {}, (
+        "cited as grounds and reachable in neither repository: "
+        + "; ".join(f"{k} ({', '.join(v[:2])})" for k, v in unreachable.items()))
+
+
 def test_the_items_this_repository_leans_on_hardest_are_present(rt):
     """Named explicitly, because the test above passes vacuously if the
     adapter ever stops parsing and this repository stops citing at the same
