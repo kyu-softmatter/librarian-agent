@@ -26,7 +26,7 @@ Decided 2026-09-06; the three rows citing §3.3–§3.5, 2026-09-09.
 | **Identity** | **The fourth axis.** Custody, retrieval and interaction for knowledge. Not `research-topic`'s J1 — that repo keeps **J2** (topic selection) and **J3** (the form of a pass condition) |
 | **Kind of thing** | **A server over a store, not a fourth conversational agent** → §3.3 |
 | **Callers** | the three agents' lenses and personas, **and people** — each under a named profile, everyone through their own MCP client → §3.5 |
-| **Where it runs** | v1 stdio, one process per session · v2 **one always-on service on the lab NAS** → §3.4 |
+| **Where it runs** | **The microscope PC — all four systems, one machine** (decision 35). stdio, one process per session, and it stays correct through BD → §3.4 |
 | **v1** | **Librarian for the microscope agent only.** Then simulation (BD), then research (RT) |
 | **Data** | Structure first, verified second, migrated third → [BUILD.md](BUILD.md) · [MIGRATION.md](MIGRATION.md) |
 | **Visibility** | **public** — so `publish-gate` (§6.1) moves to Phase 0 |
@@ -204,7 +204,15 @@ downstream.**
 **→ Design consequence: every hit carries `evidence` / `tier` / `provenance`.**
 A hit without a tier is not returned. Mis-tiering then shows up at transport time.
 
-### 1.6 The two repos run on different machines
+### 1.6 One machine — and what the two-machine reading cost
+
+> **Corrected 2026-09-15 by the operator, and it retires an argument this plan
+> leaned on twice.** This section read *"the two repos run on different
+> machines"* and concluded that a shared local filesystem could not be assumed.
+> **BD running on macOS is a development environment, not a deployment
+> target**: it passes CI and runs anywhere. **Everything runs on the
+> microscope PC**, and separation waits until the system is understood well
+> enough to be worth splitting (decision 35).
 
 MS `.mcp.json`:
 
@@ -212,11 +220,19 @@ MS `.mcp.json`:
 "command": "C:\\Users\\<lab PC>\\venvs\\auto_microscope\\Scripts\\python.exe"
 ```
 
-MS's MCP server holds hardware on the **lab Windows PC**. BD runs on macOS under
-conda `simulation_bot`. **A shared local filesystem cannot be assumed.**
+MS's MCP server holds hardware on the **lab Windows PC**, and that is where all
+four systems run. Two facts survive the correction unchanged, and one argument
+does not:
 
-All four repositories are public, so `git fetch` is a platform-independent
-ingest channel — and the commit SHA becomes the index's provenance.
+| | Status |
+|---|---|
+| The hard-coded absolute interpreter path above | **Still a fact, still the thing decision (i) has to replace.** One machine does not make an absolute venv path portable across the four `.mcp.json` files |
+| `git fetch` as the ingest channel | **Unchanged.** All four repositories are public, the SHA becomes the index's provenance, and ingest never depended on where the clone sits |
+| *"A shared local filesystem cannot be assumed"* | **Retired.** It can be assumed — there is one disk. §3.4 and Phase 5 both rested on it, and both are corrected below |
+
+**The correction makes the design smaller, not larger**, which is why it is
+recorded here rather than absorbed quietly: the always-on service was never
+wanted for itself, only forced by a second machine that is not there.
 
 ### 1.7 Nothing in either repo reads its KB at runtime
 
@@ -425,24 +441,33 @@ claims, and each fails differently.
 | 2 | **It was registered when the session started** | `.mcp.json` is read at startup, so the candidate set is **closed** for that session. Adding a server mid-session is a separate approval step, not a call |
 | 3 | **Then it may be called freely — but every call is independent** | Request-response, no memory between calls. Anything that has to survive two calls is in the index, or it does not exist |
 
-**The transport is not an open choice, because §1.6 already narrowed it.** MS
-runs on the lab Windows PC and BD on macOS, and a shared local filesystem cannot
-be assumed. stdio-per-session only accumulates knowledge where the SQLite file
-sits on the caller's own disk, so it is a **single-machine** arrangement:
+**The transport was settled by §1.6, and §1.6 was wrong.** The argument ran:
+MS on the lab Windows PC, BD on macOS, no shared filesystem, therefore
+stdio-per-session cannot accumulate anything shared, therefore an always-on
+service. The premise is retired — BD's macOS is a development environment and
+**all four systems run on the microscope PC** (decision 35). So:
 
 | | stdio, spawned per session | one always-on service (HTTP/SSE) |
 |---|---|---|
 | Setup | nothing beyond `.mcp.json` | a host, a supervisor, a port |
-| Knowledge accumulates | yes — but only across sessions on **one** machine | yes, across machines |
+| Knowledge accumulates | yes — across sessions on **one** machine, which is now the deployment | yes, across machines — **and there is no second machine to reach** |
 | Concurrent writers | undefined: two spawned processes, one file | the service serializes, once it is written to |
 | Lifetime | the session's | independent, and has to be watched |
 
-**v1 is stdio** — `mcp_server/server.py` runs `transport="stdio"` — which is
-correct while there is one indexed repository, one writer, and no tool that
-writes. **It stops being correct at BD:** the second machine is what forces the
-always-on service, not preference. **The host is the lab NAS** (decision 27);
-the registration form the callers share is decision (i), and the policy for a
-second writer is decision (j).
+**Read down the stdio column: one machine is what that column was always right
+for.** `mcp_server/server.py` runs `transport="stdio"`, and the thing that was
+going to force it out — the second machine — is not there. **stdio therefore
+stays correct through BD**, which is the opposite of what this section said
+until 2026-09-15.
+
+**What still has to be settled is in the third row, and only that row.** Several
+agents on one machine means several spawned processes over one SQLite file.
+Reads are safe and concurrent — the server opens the index **read-only and per
+call** (`mcp_server/tools.py`), so a rebuild is picked up on the next call and
+no session holds a stale handle. Writes are *undefined*, and that is now the
+**single** remaining forcing function for a service, rather than one of two:
+decision (j). The shared registration form is still decision (i) — one machine
+does not make MS's absolute interpreter path portable.
 
 **And the tool surface is a budget.** Every registered tool's name and parameter
 descriptions load into the **caller's** context at session start, in every
@@ -452,9 +477,12 @@ existing tool before it becomes a tenth tool (decision 25).
 
 ### 3.5 People are the second class of caller
 
-Decided 2026-09-09. The server lives on the **lab NAS** (decision 27), and what
-reaches it there is not only the three agents: a person asks in their own words,
-and the answer should fit who asked and what for.
+Decided 2026-09-09; the host corrected 2026-09-15. The server runs on the
+**microscope PC** (decision 35), and what reaches it there is not only the three
+agents: a person asks in their own words, and the answer should fit who asked and
+what for. **The host changes where this is urgent, not whether it is true** — a
+person at that PC is still a second class of caller, and ② below is the one item
+the correction genuinely defers.
 
 **Three things that deliberately do not change.**
 
@@ -462,7 +490,7 @@ and the answer should fit who asked and what for.
 |---|---|
 | **No model inside the server** | A person arrives through **their own MCP client**, and that client's model composes the answer. The librarian still returns nothing but quoted text with coordinates and a tier — decision 24 stands and §3.3's argument is untouched |
 | **The same nine tools** | A person's question is a `kb_search` under a different profile, not a tenth tool (decision 25) |
-| **One always-on service** | §3.4's transport, now with a host |
+| **One transport, whatever it is** | A person's client registers the same server the agents do. §3.4 now keeps stdio through BD, so this is one line in one more `.mcp.json` rather than a host to stand up |
 
 **And four things that do.**
 
@@ -474,12 +502,17 @@ reasons it is not `person:<name>`: profiles would then multiply with people
 rather than with kinds of question, and a person-keyed profile records **who was
 looking for what** in a public repository (§6.1).
 
-**② `caller_profile` becomes an identity claim.** Among three trusted agents on
-one machine a self-declared profile is harmless — a wrong one is a bug in a
-config file. On a NAS that several people reach it asserts *who is asking* and
-nothing checks it, and a wrong role returns evidence that is plausible, correctly
-cited, and **not what that person needed** — which they cannot tell from the
-answer. Whether the service verifies the claim is decision (l).
+**② `caller_profile` becomes an identity claim — and this is the part the
+single-machine correction defers.** Among trusted agents on one machine a
+self-declared profile is harmless: a wrong one is a bug in a config file. The
+claim only becomes load-bearing on an endpoint several people reach
+independently, and with everything on the microscope PC there is no such
+endpoint yet — a caller is either one of the three agents or someone sitting at
+that PC. So decision (l) stands open and **its trigger moves with the
+separation** (decision 35), not with BD's arrival. What does not change is the
+shape of the failure when it comes: a wrong role returns evidence that is
+plausible, correctly cited and **not what that person needed**, and nothing in
+the answer says so.
 
 **③ The publish gate widens.** §6.1 already keeps raw query text off a public
 path, because what someone searched for is what they are about to do. A person's
@@ -947,17 +980,20 @@ Each phase carries an exit condition. A phase without one does not end.
 → [BUILD.md](BUILD.md) for the acceptance gate, [MIGRATION.md](MIGRATION.md) for
 the five steps. **Deletion is Step 5.**
 
-### Phase 5 — the second machine, and the second kind of caller
+### Phase 5 — the second writer, and the second kind of caller
 
-Everything here waits for BD, because the second machine is what forces it
-(§3.4). Nothing in it reshapes v1.
+**Retitled 2026-09-15.** This phase read *"the second machine"* and everything
+in it waited on BD, because a second machine was what forced a service. There is
+no second machine (§1.6, decision 35), so what is left here waits on the
+**second writer** instead — and that arrives from concurrency on one machine, not
+from a platform.
 
 | Task | Exit condition |
 |---|---|
-| One always-on service on the **lab NAS** | Two callers on two machines answer the same question from **one** index, and the service's uptime is owned by something outside the calling agent — systemd, docker or a supervisor |
+| ~~One always-on service on the lab NAS~~ | **Dropped** (decision 35). stdio stays correct through BD; a service returns only if decision (j) concludes that serializing writes needs one, or when separation begins |
 | The shared registration form (decision (i)) | One line, valid in all four `.mcp.json` files and in a person's client, with no absolute interpreter path in it |
 | `human:*` role profiles + `purpose` (decision 29) | A person's question and a lens's question return **different** top results from the same corpus, the way the lens pair already does ([BUILD.md](BUILD.md) §4-B) |
-| `map/04-agents/lib/` (decision 30) | Generated from `profiles/` and the tool surface, and a query for a term reports **which** profile declares it, with a locator — never which profile the asker meant (decision 31) |
+| `map/04-agents/lib/` (decision 30) | Generated from `profiles/` and the tool surface, and a query for a term reports **which** profile declares it, with a locator — never which profile the asker meant (decision 31). The mechanism is §5.3's `profile_candidates` |
 | A second writer (decision (j)) | Two concurrent writes leave the index in a state a full rebuild reproduces exactly |
 
 ### Not in scope
@@ -988,7 +1024,7 @@ defence against those two, so if it dies that way there is no defence left.
 | **Unpublished direction goes public** | Query text or a digest in a public repo | §6.1 `publish-gate`; sessions uncommitted until decided |
 | **Rank becomes worth** | A score stored in an entry | §2.1 — returned, never stored |
 | **The server is unreachable** | Every call errors — or, worse, the tools are absent from the session and nothing says so | §3.4's three conditions. Uptime belongs to the host, not to a caller; and a caller that could not reach the store records `not_searched`, which is a fact, rather than nothing |
-| **Two agents write at once** | A lost update, or an index built over a half-written entry | v1 has one writer and read-only tools. The always-on service that admits a second writer gets a policy **before** it admits it — decision (j) |
+| **Two agents write at once** | A lost update, or an index built over a half-written entry | v1 has one writer and read-only tools. A second writer gets a policy **before** it is admitted — decision (j), which since 2026-09-15 is the **only** remaining reason this design would need a service at all (§3.4) |
 | **A person is served under the wrong role** | A plausible, correctly cited answer that is not the one they needed — and nothing in it says so | Roles are versioned files, so a wrong answer is at least reproducible and diffable. Whether the service checks the declared role is decision (l) (§3.5②) |
 | **The librarian infers a profile** | Retrieval narrows to a lens nobody asked for, invisibly | §3.6: the agent map supplies the correspondence, the caller makes the choice (decision 31) |
 | **A silently empty read** | A moved path returns 0 rows instead of an error | Adapters assert a non-zero count per source; a source that drops to zero fails the build |
@@ -1030,8 +1066,8 @@ silently empty read is the same failure mode as an unwired checker."*
 | 23 | What the librarian **is** | **An MCP server over a deterministic store** — not a fourth conversational agent | An LLM call is stateless, so a reasoning librarian reloads the corpus description every request (§3.3) |
 | 24 | An LLM inside a tool | **None in v1.** If ever, inside one tool behind a named trigger — never resident, never originating a number | A resident agent reintroduces the per-request context cost the index exists to remove (§3.3) |
 | 25 | Growing the tool surface | **A new question becomes a parameter before it becomes a tool** | Every registered spec is loaded into the caller's context at session start (§3.4) |
-| 26 | v1 transport | **stdio, one process per session** | One repository, one machine, one writer, no tool that writes (§3.4). The always-on service arrives with BD |
-| 27 | **Host for the always-on server** | **The lab NAS** | Decided 2026-09-09; closes open (h). It is the one machine neither the microscope's Windows PC nor the simulator's macOS depends on (§1.6) |
+| 26 | v1 transport | **stdio, one process per session** | One repository, one machine, one writer, no tool that writes (§3.4). **Revised 2026-09-15:** it does not stop at BD either — the second machine that was going to force a service does not exist (decision 35) |
+| 27 | ~~Host for the always-on server~~ | ~~The lab NAS~~ — **superseded by 35** | Decided 2026-09-09 on §1.6's two-machine premise, and that premise was wrong. Kept rather than deleted: it is the second time this plan has been argued into extra machinery by a fact that was not checked (the first is §1.8's linters) |
 | 28 | How **people** reach it | **Their own MCP client.** The server returns cited evidence; the caller's model composes the answer | No synthesis layer, so decision 24 and §3.3 stand unchanged, and there is one server to keep up rather than two surfaces to keep equal (§3.5) |
 | 29 | Profile namespace for people | **Role and purpose** — `human:*` plus a `purpose` argument — **never per person** | Profiles multiply with kinds of question, not with people; and a person-keyed profile records who was looking for what in a public repository (§3.5①, §6.1) |
 | 30 | The fourth agent in `map/04-agents/` | **`lib/`, generated from `profiles/` and the tool surface** | This repository has no `.claude/agents/`; those two files are where its roles are actually declared (§3.6) |
@@ -1039,22 +1075,23 @@ silently empty read is the same failure mode as an unwired checker."*
 | 32 | **Whether Librarian ever calls a source repository** | **Never.** It is an MCP *server* and never an MCP *client* of MS, BD or RT. Ingest stays one-directional: `git fetch`, and the sha becomes every hit's provenance | Confirmed 2026-09-15. Calling out breaks all three of §3.4's conditions at once — an answer would depend on another agent's session being up — and a two-way call has no depth bound, so the loop circulates doubt instead of topics (`C-001`). Edge 4 stays a routed file drop |
 | 33 | **How a caller finds its profile** | **Candidates returned with citations, never applied** — a return field of `kb_search`, keyed on each agent file's `owns`, with `candidates_applied: false` | Decided 2026-09-15, §5.3. Decision 31 forbids inferring the profile and says nothing about how a caller learns which to declare; this is that, without a model — the pick happens in the caller's transcript where it is visible |
 | 34 | **Whether this repository's own files are drift-checked** | **Yes, by `tests/test_profiles.py`** — gate ids against MS's code, field terms against what the index can match, `kind_weight` against `KINDS` | Decided 2026-09-15. `librarian/drift.py` reads MS against MS and never read `profiles/`, so a profile boosted `G10` for six days after MS deleted the gate. An owner list naming a retired gate is a wrong answer with a citation attached (§5.3) |
+| 35 | **Where everything runs** | **The microscope PC — all four systems, one machine.** Separation is deferred until the system is understood well enough to be worth splitting | Decided 2026-09-15 by the operator; **supersedes 27** and retires §1.6's two-machine premise. BD's macOS is a development environment, not a deployment target: it passes CI and runs anywhere. The consequence is subtraction — stdio stays correct through BD, the NAS host is dropped, and decision (j) becomes the only remaining reason to want a service |
 
 ### Open — decided when the work reaches them
 
 | # | Decision | Blocks |
 |---|---|---|
 | a | **`publish-gate` scope for `sessions/`** — hash · gitignore · commit as-is | `kb/08-retrieval` (Phase 3). Sessions uncommitted meanwhile |
-| b | `D:\data` access — run on the lab PC, or ingest a metadata export | `envelope.sqlite` (v2) |
-| c | Indexing `D:\codes` (the analysis code lens 6 reads) | Same access question (v2) |
+| b | ~~`D:\data` access — run on the lab PC, or ingest a metadata export~~ | **Closed by decision 35**: the librarian runs on the microscope PC, so the acquisition archive is a local path. What remains is not access but volume, which is `envelope.sqlite`'s own problem (v2) |
+| c | Indexing `D:\codes` (the analysis code lens 6 reads) | **No longer an access question** (decision 35) — it is now a scope question: the index covers no Python anywhere (§5.3 rule 5), and lens 6's analysis code would be the first (v2) |
 | d | `entries/` (135) decomposition by `origin` | v2 |
 | e | `export/` wiring — git subtree or generated commit | MIGRATION Step 3 |
 | f | Tier 1 execution site | When the weekly job is built |
 | g | Deletion timing | MIGRATION Step 4's proof |
-| i | **One registration form every caller uses** — now that the host is settled (27), a URL, and how each `.mcp.json` gets it | v2. MS's own entry hard-codes an absolute Windows interpreter path (§1.6), which is exactly what a shared form has to replace — and a person's client needs the same line (§3.5) |
+| i | **One registration form every caller uses** — **a command, not a URL** now that decision 35 keeps the transport on stdio, and how each `.mcp.json` gets it | v2. MS's own entry hard-codes an absolute Windows interpreter path (§1.6), which is exactly what a shared form has to replace, and one machine does not make it portable — a person's client needs the same line (§3.5) |
 | j | **Concurrent-write policy** — single-writer queue, lock, or version-and-merge | the first write tool a second agent can reach (§8) |
 | k | Whether the claim-extraction axes — `validity` · `durability` · `operational` · `controversy_id` — enter the index as columns | `kb_search`'s `require` parameter. None of the four exists in any of the three repositories yet; if they land they arrive **opt-in per query**, never as profile filters, for §5.1's reason |
-| l | **Whether the service verifies a `caller_profile` claim**, or accepts it as declared | a NAS endpoint several people reach (§3.5②). Three trusted agents on one machine never raised it |
+| l | **Whether the service verifies a `caller_profile` claim**, or accepts it as declared | An endpoint several people reach independently (§3.5②). **Its trigger moved with decision 35**: not BD's arrival, but the separation — trusted agents and one operator on one machine never raise it |
 | m | **The `human:*` role set** — which roles exist, and who writes them | the first caller who is not the author (§3.5①) |
 | n | Whether **owner** becomes an end of `kb_supplies`, or `map/04-agents/` is read directly | routing from the agent map (§3.6) |
 

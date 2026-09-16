@@ -108,7 +108,7 @@ code it is written against without that showing up.
 
 Planned for v2 → [../PLAN.md](../PLAN.md) §3.5.
 
-A person reaching the NAS server asks in their own words and has no lens. What
+A person reaching the server asks in their own words and has no lens. What
 they get instead is a `human:*` profile — the same file form, the same weights,
 applied the same way server-side — plus a `purpose` argument on the query,
 because the same person asks for different reasons on different days.
@@ -123,12 +123,15 @@ tidiness:
   repository. That is the disclosure `publish-gate` exists to stop
   ([../PLAN.md](../PLAN.md) §6.1), except committed rather than logged.
 
-**And a declared role is a claim, not a fact.** Among three agents on one machine
-a wrong `caller_profile` is a bug in a config file. On a NAS several people can
-reach, it asserts *who is asking*, nothing checks it, and what comes back is
-plausible, correctly cited, and **not what that person needed** — which the
-answer does not show. Whether the service verifies the claim is open
-([../PLAN.md](../PLAN.md) §9, decision (l)).
+**And a declared role is a claim, not a fact.** Among trusted agents on one
+machine a wrong `caller_profile` is a bug in a config file — and one machine is
+now the whole deployment: everything runs on the microscope PC
+([../PLAN.md](../PLAN.md) decision 35). The claim only becomes load-bearing on an
+endpoint several people reach independently, where it asserts *who is asking*,
+nothing checks it, and what comes back is plausible, correctly cited, and **not
+what that person needed** — which the answer does not show. So decision (l)
+stays open and **arrives with the separation**, not with BD
+([../PLAN.md](../PLAN.md) §9).
 
 ## The rule that keeps ranking honest
 

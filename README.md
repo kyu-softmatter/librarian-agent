@@ -82,7 +82,7 @@ job to a person; the flag is what keeps a forgotten refresh from being silent.
       | ms:lens-*  bd:s*  rt:V*        |   | bd/knowledge-export    |
       | human:* -- role and purpose    |   | read with Grep,        |
       |                                |   | offline, no MCP tool   |
-      | v1 stdio . v2 one service, NAS |   | declared               |
+      | stdio . one machine: scope PC  |   | declared               |
       +--------------------------------+   +------------------------+
 ```
 
@@ -201,14 +201,20 @@ model inferring what the caller probably meant.
 | 2 | it was registered at startup | `.mcp.json` is read once, so the set of reachable servers is **closed** for that session |
 | 3 | then it can be called freely | each call is independent; whatever has to survive two calls is in the index, or it does not exist |
 
-**v1 is stdio, which is right for exactly as long as v1 lasts** — one
-repository, one machine, one writer, and no tool that writes. It stops being
-right at BD: the microscope runs on the lab Windows PC and the simulator on
-macOS, so a shared local disk cannot be assumed and a per-session process stops
-accumulating anything shared. **v2 is one always-on service on the lab NAS** —
-the one machine neither the Windows PC nor the macOS one depends on. How every
-caller registers it, and what happens when two of them write at once, are still
-open. → [PLAN.md](PLAN.md) §3.4
+**It runs on stdio, and everything runs on the microscope PC** — all four
+systems, one machine, with separation deferred until the system is understood
+well enough to be worth splitting. This replaces an earlier plan for an
+always-on service on the lab NAS, and the correction is a subtraction: that
+service was never wanted for itself, only forced by a second machine. There
+isn't one — the simulator's macOS is a **development** environment, and it
+passes CI and runs anywhere.
+
+So one thing remains open where two did. Reads are already safe to run
+concurrently: several agents mean several spawned processes, the server opens
+the index **read-only and per call**, and a rebuild is picked up on the next
+call rather than held stale by a live session. **Concurrent writes are
+undefined**, and that is now the only thing that would force a service.
+→ [PLAN.md](PLAN.md) §3.4
 
 **People are the second class of caller, and they arrive the same way.** A person
 asks in their own words through **their own MCP client**, so the answer is
@@ -218,8 +224,10 @@ inside the server. What it does add is a profile namespace: `human:*` roles plus
 a `purpose` argument, keyed by **role, not by person** — profiles should multiply
 with kinds of question rather than with people, and a person-keyed one would
 record who was looking for what in a public repository. It also turns
-`caller_profile` into an identity claim that nothing yet checks: harmless among
-three trusted agents on one machine, less so on a NAS several people reach.
+`caller_profile` into an identity claim that nothing yet checks — harmless
+among trusted agents on one machine, and it becomes load-bearing only on an
+endpoint several people reach independently, which is a question that now
+arrives with the separation rather than with BD.
 → [PLAN.md](PLAN.md) §3.5
 
 **And the four agents' own definitions are part of the store.**
@@ -320,7 +328,7 @@ None of these was read off a sentence that says so.
 | **The literature crosswalk** — BD's 42 distillations into the microscope's empty `kb/literature/` | the sharpest gap in the system, and the mapping is already **1→N**: BD files one paper per file with a `provides:` array, the microscope files one quantity per subject, and that array is the decomposition key |
 | `envelope.sqlite` — the quantitative index of 2,343 acquisitions | the records live in `D:\data`, outside every repository → **the two things below** |
 | Turning "query both" into one query | BD calls its two unmerged knowledge schemas *"the largest piece of debt in the repository"*; indexing both is the read-side fix without merging either |
-| **One always-on server on the lab NAS**, replacing per-session stdio | the second machine is what forces it: stdio needs the index on the caller's own disk, and BD's is a macOS one → [PLAN.md](PLAN.md) §3.4 |
+| ~~One always-on server on the lab NAS~~ | **Dropped 2026-09-15.** It was forced by a second machine, and there is none — everything runs on the microscope PC. What is left in its place is a **concurrent-write policy**, which is a policy and not a host → [PLAN.md](PLAN.md) §3.4 |
 | `human:*` role profiles, and a `purpose` argument | people are the second caller class, and the first whose declared role nothing checks → [PLAN.md](PLAN.md) §3.5 |
 | `map/04-agents/lib/` — the fourth agent's own definitions | it is generated from `profiles/` and the tool surface, so it settles once the role profiles above do → [PLAN.md](PLAN.md) §3.6 |
 

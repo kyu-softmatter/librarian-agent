@@ -52,8 +52,10 @@ worst place for a failure to appear. `agentic-microscope` calls its own
 
 The client launches it with the repository root as the working directory, which
 is what makes `-m mcp_server.server` resolve. **On Windows use `"python"`** —
-`python3` is not normally on PATH there, and the lab machine is the one that has
-the acquisition archive.
+`python3` is not normally on PATH there, and **Windows is the deployment
+platform**: every system runs on the microscope PC, which is also the machine
+holding the acquisition archive ([../PLAN.md](../PLAN.md) decision 35). macOS is
+the development environment, so both lines get used.
 
 Install and build the index first; the tools answer `status: no_index` until
 there is one, rather than failing:
@@ -78,18 +80,31 @@ it dies with that session. Three things follow, and each is a separate way for
    whatever has to survive two of them is in `index/kb.sqlite`, or it does not
    exist.
 
-stdio is correct for v1: one indexed repository, one machine, one writer, and no
-tool here that writes. It stops being correct at BD, whose repository is on
-another machine — knowledge only accumulates over stdio when the SQLite file is
-on the caller's own disk. **v2 replaces this with one always-on service on the
-lab NAS**, and the shared registration form and the concurrent-write policy
-are still open decisions → [../PLAN.md](../PLAN.md) §3.4.
+**stdio is correct, and it stays correct through BD.** It said the opposite
+here until 2026-09-15: that BD's repository sat on another machine, that
+knowledge only accumulates over stdio when the SQLite file is on the caller's
+own disk, and that an always-on service on the lab NAS followed. The premise
+was wrong — BD's macOS is a development environment, it passes CI, and **all
+four systems run on the microscope PC** (decision 35). One machine is exactly
+what the stdio column was always right for.
+
+**Concurrent reads are already safe; writes are what is left.** Several agents
+mean several spawned processes over one SQLite file. `_open()` connects
+`mode=ro` and **per call**, closing again before returning, so no session pins a
+handle and a `reindex` lands on the next call — a call that arrives mid-rebuild
+gets `status: no_index`, which is the designed degradation rather than a wrong
+answer. Writes are undefined between two processes, and that is now the single
+remaining reason this design would want a service:
+[../PLAN.md](../PLAN.md) §3.4, decision (j). The shared registration form
+stays open too — one machine does not make MS's absolute interpreter path
+portable.
 
 **People reach it the same way, and nothing here composes an answer for them.** A
 person arrives through their own MCP client under a `human:*` role profile, so
 the model they are already talking to does the composing while this server keeps
-returning quoted text with coordinates. That is why a NAS several people can
-reach still needs no LLM inside it → [../PLAN.md](../PLAN.md) §3.5.
+returning quoted text with coordinates. That holds wherever it runs, which is
+why the host correction above changed nothing in this paragraph
+→ [../PLAN.md](../PLAN.md) §3.5.
 
 ## What is not here
 

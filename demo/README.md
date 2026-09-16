@@ -25,8 +25,15 @@ they ask.
 Decision 26 pins v1's transport to **stdio**, and `mcp_server/server.py` runs
 exactly that. `serve.py` imports the same `build()` and runs it over
 `streamable-http` instead — the server is byte-identical, only the transport
-argument differs. So this is a **preview of the always-on service** PLAN.md §3.4
-describes, kept out of the package it previews.
+argument differs.
+
+**What it previews is now a contingency rather than a plan.** PLAN.md §3.4
+described an always-on service as v2's transport; decision 35 put every system
+on the microscope PC, which removed the second machine that forced it, and stdio
+now stays correct through BD. So these pages preview the shape a service would
+take **if the concurrent-write policy (decision (j)) ever calls for one** — kept
+out of the package it previews, and worth keeping for the browser reachability
+it demonstrates either way.
 
 Two transport options make the endpoint reachable from a browser at all:
 `json_response` returns plain JSON instead of an event stream, and
