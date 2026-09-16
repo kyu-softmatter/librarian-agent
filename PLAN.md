@@ -166,7 +166,7 @@ interim rule is **query both**."*
 
 **Turning "query both" into one query is the first measurable win — in v2.**
 
-### 1.4 Row 2 is the sharpest gap, and the mapping is 1→N
+### 1.4 Row 2 is the sharpest gap — and the decomposition key it named does not exist
 
 rt README §2.1 row 2: BD holds 42 literature distillations; MS holds an **empty
 folder built to receive exactly that** (`kb/literature/` — README and
@@ -178,12 +178,54 @@ The two sides store at different granularity. MS `kb/literature/README.md`:
 > `smith-2019.md`: the unit of storage is the number a gate consumes, not the
 > paper it came out of. One paper supplying three quantities becomes three files."*
 
-BD's unit is one paper per file, with a `provides:` array.
+BD's unit is one paper per file.
 
-**So the crosswalk is 1→N, and BD's `provides` array is already the decomposition
-key.** `mason-weitz-1995` carries `provides: [gser-formula, msd-to-moduli,
-newtonian-limit-check]` — three MS-shaped files. This is not a schema to
-negotiate; it is a field that already exists on both sides.
+> **⚠ The rest of this section was wrong, and it was generalized from the one
+> file it cites.** It read: *"BD's unit is one paper per file, with a `provides:`
+> array. So the crosswalk is 1→N, and BD's `provides` array is already the
+> decomposition key. `mason-weitz-1995` carries `provides: [gser-formula,
+> msd-to-moduli, newtonian-limit-check]` — three MS-shaped files. This is not a
+> schema to negotiate; it is a field that already exists on both sides."*
+>
+> **Measured 2026-09-15 against `bd@a18e171`: 1 of 42 papers carries a
+> `provides:` array**, and it is `mason-weitz-1995` — the one the paragraph
+> cited. Across the whole of BD's `knowledge/`, exactly one file has the field.
+>
+> | Frontmatter shape | Papers |
+> |---|---|
+> | `type: source` | **40** |
+> | `type: paper-distillation` | 1 |
+> | `kind: literature` (carries `provides:`) | **1** |
+>
+> So the decomposition key does not exist on both sides, and *"not a schema to
+> negotiate"* was the opposite of the truth. **This is the third time this plan
+> has been argued forward by a fact nobody checked** — after §1.8's linters and
+> §1.6's two machines — and it is the only one of the three that blocks work
+> rather than adding it: v2's literature crosswalk was designed around the field.
+
+**What BD holds instead is narrower and, in one way, better.** 11 of the 42
+papers carry `parameters_extracted: yes`, and the extraction is in the **body**
+rather than in frontmatter. `2008-park-salt-surfactant-interface-forces` §1
+records `η_eff` with the page it came from (*"본문 p.1689, Materials and
+Methods"*), the boxed expression, the surface-area-weighted derivation, three
+limit checks, and a conditions table that says which numbers **are not in the
+paper at all** (`η_oil`, `η_water`, the contact angles). That is closer to MS's
+mandatory `## Transfer conditions` than a `provides:` array ever was — a list of
+names does not say what has to hold.
+
+**The crosswalk therefore has to read a section, not a field** — which is a
+parser to write rather than a mapping to apply, and it is v2's work. What it is
+not is a schema negotiation: both sides already record conditions, and neither
+records them in a key the other can look up.
+
+**And the first `kb/literature/` entry does not follow from this gap.** MS has
+exactly two registry gaps — `data/fluorophores.yaml > lifetime_ns` (6 of 17
+dyes, gate **G20**) and `data/particles.yaml > source` (4 of 8, no gate). The
+first is a literature quantity and **BD holds no fluorophore data at all**: its
+42 papers are colloid and active-matter physics. The second is a provenance
+field, not a published number. So the sharpest gap in the *system* and the
+first entry MS's folder can receive are not the same task, which this section
+had treated as one.
 
 ### 1.5 The fourth convergence — enforceable at the transport layer
 

@@ -380,7 +380,7 @@ None of these was read off a sentence that says so.
 | | Why it waits |
 |---|---|
 | BD adapters (`wiki` · `source` · `entries` · `runs`) | adapters are additive; bolting one on reshapes nothing |
-| **The literature crosswalk** — BD's 42 distillations into the microscope's empty `kb/literature/` | the sharpest gap in the system, and the mapping is already **1→N**: BD files one paper per file with a `provides:` array, the microscope files one quantity per subject, and that array is the decomposition key |
+| **The literature crosswalk** — BD's 42 distillations into the microscope's empty `kb/literature/` | the sharpest gap in the system. **The key it was designed around does not exist**: `provides:` is on **1 of 42** papers, measured 2026-09-15, and that one is the paper the claim was generalized from. What 11 of them do carry is the extraction in the body, with its conditions — closer to what the microscope's template demands, and a parser to write rather than a mapping to apply → [PLAN.md](PLAN.md) §1.4 |
 | `envelope.sqlite` — the quantitative index of 2,343 acquisitions | the records live in `D:\data`, outside every repository → **the two things below** |
 | Turning "query both" into one query | BD calls its two unmerged knowledge schemas *"the largest piece of debt in the repository"*; indexing both is the read-side fix without merging either |
 | ~~One always-on server on the lab NAS~~ | **Dropped 2026-09-15.** It was forced by a second machine, and there is none — everything runs on the microscope PC. What is left in its place is a **concurrent-write policy**, which is a policy and not a host → [PLAN.md](PLAN.md) §3.4 |
