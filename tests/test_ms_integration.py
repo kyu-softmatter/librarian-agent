@@ -121,13 +121,22 @@ def test_the_two_known_blockers_have_both_been_retired(ms):
     assert "G10" not in {g.gate for g in rows}
 
     # The one gated field still short of its registry, and the one gap that
-    # never had a gate: neither is BLOCKED, because both are partly filled.
+    # never had a gate: neither is BLOCKED, because both are **partly** filled.
+    #
+    # **Partly, not 11 of 17.** This pinned the integer and went red on
+    # 2026-09-16 when `lifetime_ns` reached 12 -- because a pull request from
+    # this session filled TRITC's, which is the gap closing. A count that moves
+    # whenever the microscope fills a dye is a test of the microscope's
+    # activity; what belongs here is that the field is gated, incomplete, and
+    # therefore not BLOCKED. `librarian gaps` prints the number, and
+    # `kb_supplies lifetime_ns` names which dyes are still empty.
     lifetime = by_field[("data/fluorophores.yaml", "lifetime_ns")]
     assert len(lifetime) == 17 and lifetime[0].gate == "G20"
-    assert sum(g.present for g in lifetime) == 11
+    filled = sum(g.present for g in lifetime)
+    assert 0 < filled < len(lifetime), f"{filled}/17 is not a partial fill"
 
     source = by_field[("data/particles.yaml", "source")]
-    assert sum(g.present for g in source) == 4 and len(source) == 8
+    assert 0 < sum(g.present for g in source) < len(source) == 8
 
 
 def test_gates_are_read_from_their_own_docstrings(ms):
