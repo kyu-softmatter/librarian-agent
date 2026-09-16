@@ -23,9 +23,19 @@ kb/07-sources/raw/*
 !kb/07-sources/raw/.gitkeep
 
 # Retrieval sessions store raw query text, and this repository is public.
-# What someone was looking for is what they are about to do, so the publish-gate
-# scope has to be settled first (PLAN.md 6.1, FEEDBACK.md 6 open item a).
-# Local only until then; oracles/ is committed.
+# What someone was looking for is what they are about to do, and in a public repo
+# deleting the file afterwards does not undo the disclosure (rt T-019).
+#
+# Settled 2026-09-15, PLAN.md 6.1 / FEEDBACK.md decision 6: **local only, and
+# not provisionally.** A session accumulates automatically, no human reads one
+# before it lands, and volume guarantees none ever will -- so the default has to
+# be safety. `oracles/` and `findings/` are committed, because a promotion is
+# human-approved already and that approval is the disclosure review.
+#
+# `librarian/publish.py` declares the same boundary in code and
+# `tests/test_publish_gate.py` asserts this file agrees with it. Widening the
+# pattern below to `kb/08-retrieval/*` stops committing the regression oracles,
+# and that failure would surface as "the oracles never ran in CI", much later.
 kb/08-retrieval/sessions/*
 !kb/08-retrieval/sessions/.gitkeep
 

@@ -220,7 +220,7 @@ constraint ④ forbids. Migration starts when all of the following pass.
 | **Self-reported decay** | When `manifest.json`'s SHA ≠ the current repo SHA, **every response carries `index_stale: true`** |
 | Strict mode | Under `--strict` a stale index **refuses** to answer (the default is failure — constraint ①) |
 | Proposal isolation | No path lets LLM output leave `store/inbox/` |
-| `publish-gate` | A write of unpublished content to a public path is blocked, **proved by a test**. Includes `kb/08-retrieval/sessions/` → [PLAN.md](PLAN.md) §6.1 |
+| `publish-gate` | A write of unpublished content to a public path is blocked, **proved by a test** — `tests/test_publish_gate.py`, which checks `.gitignore` against the boundary `librarian/publish.py` declares. `kb/08-retrieval/sessions/` is local only and permanently; raw query text is committed in `oracles/` alone, where a human approval already stands between the record and the commit → [PLAN.md](PLAN.md) §6.1, decision 37 |
 
 **The `index_stale` flag is the substitute for the scheduler.** Cron keeps the
 refresh from being forgotten; the flag keeps a forgotten refresh from being

@@ -634,9 +634,10 @@ always-on service: a second machine, and a second writer. Decision 35 removed
 the first; this removes the second. **Nothing in the design now requires a
 service** — `demo/` keeps the HTTP transport as a contingency, not a plan.
 
-**What it does not close.** Open (a), the `publish-gate` scope for `sessions/`,
-is untouched: that is a disclosure question, not a concurrency one, and a
-record written perfectly is still a record of what someone was looking for.
+**What it did not close.** The `publish-gate` scope for `sessions/` is a
+disclosure question, not a concurrency one — a record written perfectly is still
+a record of what someone was looking for. Settled separately, §6.1,
+decision 37.
 
 ---
 
@@ -1023,10 +1024,50 @@ This repository is public, so the rule belongs in Phase 0. **The path that opens
 first is not the digest** — the digest is deferred — **it is
 `kb/08-retrieval/sessions/*.json`, which stores query text.**
 *"bleach photons for AlexaFluor488 at 470 nm"* is harmless, but **what someone was
-looking for is what they are about to do.** Three options, to be settled when
-`08-retrieval` is implemented: hash the query only (oracles then cannot be
-re-run) · gitignore `sessions/` and commit `oracles/` only · commit as-is.
-**Until then session files are not committed** (the default is failure).
+looking for is what they are about to do.**
+
+**Settled 2026-09-15, decision 37; closes open (a).** `librarian/publish.py`.
+Of the three options open (a) offered, one was already foreclosed and one was
+never safe:
+
+| Option | Settled as |
+|---|---|
+| Hash the query only | **No.** Decision 3 in [FEEDBACK.md](FEEDBACK.md) keeps the raw query because it is the reproduction input, and §3 there is why that matters: retrieval has no grader, so a past confirmed citation stands in for one. Hashing makes an oracle unrunnable — it trades the whole purpose of the folder for a protection the folder split already gives |
+| Commit as-is | **No.** rt `T-019`①: in a public repo, deleting the file afterwards does not undo the disclosure. And no human reads a session before it lands |
+| **`sessions/` local, `oracles/` committed** | **Yes — and not provisionally.** |
+
+**The reason it is not merely a folder split is that the split lands on a human
+approval that already exists.** An oracle *is* `(query, caller_profile) →
+cited`; it carries the raw text by definition, so committing `oracles/` does
+publish query text. What makes that safe is that **promotion is human-approved
+already** ([FEEDBACK.md](FEEDBACK.md) §5, decision 21) — put there to block the
+self-confirming loop, and it happens to be the exact moment a person reads the
+query text and can judge whether it publishes a direction. The gate needed no
+new ceremony; it needed the existing one named.
+
+Three consequences, each checked rather than asserted:
+
+- **`sessions/` is gitignored permanently.** A session accumulates
+  automatically and volume guarantees no one will review them, so the default
+  is safety — the same habit as `not_searched` being the default.
+- **A `findings/` record carries no raw query.** Its own folder is *"why a
+  profile fails — the cause, not the symptom,"* and a quoted query is the
+  symptom as well as the disclosure.
+- **No record in either folder names a person.** `asked_by` is a role (`agent`,
+  or a `human:*` profile), never a name — rt `T-018` · `T-035`, *citations stay
+  and attributions go*, and decision 29 for the same reason.
+
+**The cost, stated rather than discovered later: a query that reveals a
+direction cannot be promoted.** It stays a session — a usable regression check
+for whoever holds it locally, and one CI will never run. That is a real hole in
+coverage and it is the right side to err on, because the alternative is
+unpublishing something that cannot be unpublished.
+
+`tests/test_publish_gate.py` asserts the `.gitignore` and
+`librarian/publish.py` agree. A rule that lives in one and is contradicted by
+the other is worse than neither, because it reads as a guarantee — and
+`kb/08-retrieval/sessions/*` and `kb/08-retrieval/*` are one character apart,
+the second of which silently stops committing the oracles.
 
 Two rules inherited regardless:
 
@@ -1128,7 +1169,7 @@ defence against those two, so if it dies that way there is no defence left.
 | **Generator and artefact separate** | §1.2, observed | Every generated file heads with its generator path and SHA; drift catches a missing generator |
 | **Prose becomes state** (`I-133`) | Another agent cites a digest summary as grounds | Digests carry coordinates; summary paragraphs get no citable ID |
 | **Librarian becomes an enforcer** | It sets a value, or settles a challenge | §3.1's three invariants |
-| **Unpublished direction goes public** | Query text or a digest in a public repo | §6.1 `publish-gate`; sessions uncommitted until decided |
+| **Unpublished direction goes public** | Query text or a digest in a public repo | **Closed by decision 37** (§6.1). `sessions/` is gitignored permanently; raw query text is committed only in `oracles/`, where a human approval already stands between the record and the commit. `librarian/publish.py` declares the boundary and `tests/test_publish_gate.py` asserts the `.gitignore` agrees — the failure mode of a rule kept in prose only |
 | **Rank becomes worth** | A score stored in an entry | §2.1 — returned, never stored |
 | **The server is unreachable** | Every call errors — or, worse, the tools are absent from the session and nothing says so | §3.4's three conditions. Uptime belongs to the host, not to a caller; and a caller that could not reach the store records `not_searched`, which is a fact, rather than nothing |
 | **Two agents write at once** | A lost update, or an index built over a half-written entry | **Closed by decision 36** (§3.7): no write tool updates a record, so there is no update to lose, and a record arrives by `os.link` from a complete temp file, so a reader never sees a prefix. The index build is atomic for the same reason. `tests/test_record.py` asserts both under real threads |
@@ -1184,12 +1225,12 @@ silently empty read is the same failure mode as an unwired checker."*
 | 34 | **Whether this repository's own files are drift-checked** | **Yes, by `tests/test_profiles.py`** — gate ids against MS's code, field terms against what the index can match, `kind_weight` against `KINDS` | Decided 2026-09-15. `librarian/drift.py` reads MS against MS and never read `profiles/`, so a profile boosted `G10` for six days after MS deleted the gate. An owner list naming a retired gate is a wrong answer with a citation attached (§5.3) |
 | 35 | **Where everything runs** | **The microscope PC — all four systems, one machine.** Separation is deferred until the system is understood well enough to be worth splitting | Decided 2026-09-15 by the operator; **supersedes 27** and retires §1.6's two-machine premise. BD's macOS is a development environment, not a deployment target: it passes CI and runs anywhere. The consequence is subtraction — stdio stays correct through BD, the NAS host is dropped, and decision (j) becomes the only remaining reason to want a service |
 | 36 | **Concurrent-write policy** | **None of the three offered.** Append-only records, named by a sha256 of their content, created by `os.link` from a complete temp file — idempotent under retry, atomic under concurrent read, and no rollup file for two writers to contend over | Decided and built 2026-09-15, §3.7; **closes open (j)**. All three mechanisms answer *"two writers want the same thing"*, and no write tool here wants the same thing. It also removes §3.4's second forcing function for a service, so after decision 35 **nothing requires one** |
+| 37 | **`publish-gate` scope for `sessions/`** | **`sessions/` local only and permanently; `oracles/` and `findings/` committed.** No raw query outside `oracles/`, and no record names a person | Decided and built 2026-09-15, §6.1; **closes open (a)**. Hashing the query makes an oracle unrunnable (FEEDBACK decision 3); committing as-is cannot be undone (rt `T-019`). The split works because promotion is human-approved already, and that approval is the disclosure review — declared in `librarian/publish.py`, and the `.gitignore` is asserted to agree with it |
 
 ### Open — decided when the work reaches them
 
 | # | Decision | Blocks |
 |---|---|---|
-| a | **`publish-gate` scope for `sessions/`** — hash · gitignore · commit as-is | `kb/08-retrieval` (Phase 3). Sessions uncommitted meanwhile |
 | b | ~~`D:\data` access — run on the lab PC, or ingest a metadata export~~ | **Closed by decision 35**: the librarian runs on the microscope PC, so the acquisition archive is a local path. What remains is not access but volume, which is `envelope.sqlite`'s own problem (v2) |
 | c | Indexing `D:\codes` (the analysis code lens 6 reads) | **No longer an access question** (decision 35) — it is now a scope question: the index covers no Python anywhere (§5.3 rule 5), and lens 6's analysis code would be the first (v2) |
 | d | `entries/` (135) decomposition by `origin` | v2 |

@@ -113,7 +113,11 @@ why the host correction above changed nothing in this paragraph
 
 `kb_challenge_raise` and `kb_feedback` are the write half of this surface.
 
-A challenge has to route by the type of the falsifier it cites, and a retrieval
+A challenge has to route by the type of the falsifier it cites. A retrieval
 record stores raw query text in a repository that is public — what someone was
-looking for is what they are about to do — so the publish-gate scope is settled
-before either lands. → [../PLAN.md](../PLAN.md) §6.1
+looking for is what they are about to do — and **that gate is now settled**:
+`sessions/` is local only and permanently, raw query text is committed in
+`oracles/` alone, and `librarian/publish.py` is the boundary a writer checks
+before it writes. Both tools also write through `librarian/record.py`, so a
+retried call is one record rather than two.
+→ [../PLAN.md](../PLAN.md) §6.1 · §3.7

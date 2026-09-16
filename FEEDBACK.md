@@ -193,9 +193,33 @@ Added to [BUILD.md](BUILD.md) §2.
 | 3 | Keeping the raw `query` | **kept** — it is the reproduction input | Without it an oracle cannot be re-run |
 | 4 | Unpublished content inside `query` | subject to the `publish-gate` | **The query itself reveals the direction.** This repo is public, so this is the first exposure path, ahead of the digest → [PLAN.md](PLAN.md) §6.1 |
 | 5 | Reproductions required for promotion | **two distinct index SHAs** | One is indistinguishable from chance |
+| 6 | **`publish-gate` scope for `sessions/`** | **`sessions/` local only and permanently. `oracles/` and `findings/` committed**, no raw query outside `oracles/`, and no record names a person | Decided 2026-09-15; closes open (a). See below |
+
+### Why the folder split lands where it does
+
+Hashing the query contradicts decision 3 and removes §3's point: retrieval has
+no grader, a past confirmed citation stands in for one, and an oracle that
+cannot be re-run is not an oracle. Committing as-is contradicts rt `T-019`① —
+*"in a public repo, deleting the file afterwards does not undo the
+disclosure."*
+
+**What makes the remaining option more than a folder split is that it lands on
+an approval that is already required.** An oracle *is* `(query,
+caller_profile) → cited`, so it carries the raw text by definition and
+committing `oracles/` does publish query text. §5's human approval is what
+stands between the two — put there to block the self-confirming loop, and it is
+also the moment a person reads the query and can judge whether it publishes a
+direction. The gate needed the existing approval **named**, not a new one.
+
+**The cost is a coverage hole, and it is the right one.** A query that reveals a
+direction cannot be promoted: it stays a session, usable as a local regression
+check and never run by CI. The alternative is unpublishing something that cannot
+be unpublished.
+
+`librarian/publish.py` declares the boundary; `tests/test_publish_gate.py`
+asserts the `.gitignore` agrees with it, because a disclosure rule kept in one
+file and contradicted by the other reads as a guarantee.
 
 ### Open
 
-| # | Decision | Blocks |
-|---|---|---|
-| a | **`publish-gate` scope for `sessions/`** — hash the query · gitignore `sessions/` and commit `oracles/` only · commit as-is | Implementing this folder. **Until it is settled, session files are not committed** |
+*(none)*

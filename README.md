@@ -321,7 +321,7 @@ None of these was read off a sentence that says so.
 | | Blocked on |
 |---|---|
 | `kb_challenge_raise` — raise a doubt, routed by falsifier type | nothing; next |
-| `kb_feedback` — the retrieval-feedback store (`kb/08-retrieval/`) | the publish-gate scope. It stores raw query text and this repository is public: what someone was looking for is what they are about to do → [PLAN.md](PLAN.md) §6.1 |
+| `kb_feedback` — the retrieval-feedback store (`kb/08-retrieval/`) | nothing; the publish-gate scope was the blocker and is settled. `sessions/` is local only and permanently, and raw query text is committed only in `oracles/`, where promotion's human approval is also the disclosure review → [PLAN.md](PLAN.md) §6.1 |
 | The first `kb/literature/` entry | nothing; it is the only KB folder v1 can fill |
 
 ### v2 — the simulator, and the acquisition archive

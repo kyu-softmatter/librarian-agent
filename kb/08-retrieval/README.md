@@ -15,10 +15,25 @@ adding anything here — this folder is where the design is most likely to viola
 cited**, which is a fact, rather than **whether the answer was good**, which is
 not.
 
-> **`sessions/` is not committed yet.** It stores raw query text, and this
-> repository is public. What someone was looking for is what they are about to
-> do, so the `publish-gate` scope has to be settled first
-> ([../../PLAN.md](../../PLAN.md) §6.1). Until then: local only.
+> **`sessions/` is local only, and that is settled rather than pending.** It
+> stores raw query text in a public repository, and what someone was looking for
+> is what they are about to do. A session accumulates automatically: no human
+> reads one before it lands, and volume guarantees none ever will, so the
+> default has to be safety ([../../PLAN.md](../../PLAN.md) §6.1).
+>
+> **`oracles/` and `findings/` are committed.** Promotion is human-approved
+> already (§5), for anti-self-confirmation reasons — and that approval is also
+> the moment a person reads the query text and can judge whether it publishes a
+> direction. An oracle carries the raw query because it cannot be re-run
+> without it; a finding must not, because a finding names the cause and a
+> quoted query is the symptom.
+>
+> The cost, stated here rather than discovered later: **a query that reveals a
+> direction cannot be promoted.** It stays a session — still a usable
+> regression check for whoever holds it, and one CI will never run.
+>
+> `librarian/publish.py` is the boundary in code; `tests/test_publish_gate.py`
+> asserts the `.gitignore` agrees with it.
 
 No `cards/` — the unit here is a transaction, not a claim.
 
