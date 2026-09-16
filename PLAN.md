@@ -1122,7 +1122,7 @@ Each phase carries an exit condition. A phase without one does not end.
 |---|---|
 | `kb/literature/` first entry | Every mandatory section of MS `_template.md` filled; merged into MS as a **pull request** |
 | `kb/08-retrieval/` — the write half | **Built 2026-09-15.** `kb_feedback` and `librarian/feedback.py`: one session per call, local and never committed, every rule in [FEEDBACK.md](FEEDBACK.md) executable rather than prose |
-| `kb/08-retrieval/` — the exit condition (**F9**) | **Not met, and it cannot be met by code alone.** An oracle catches a regression: break a profile on purpose and *the test must fail*. That needs an entry in `oracles/`, and the only route there is a human approving a promotion — so the first oracle waits on a real session reproduced under two index states and a person deciding its query text may be published, not on another module |
+| `kb/08-retrieval/` — the exit condition (**F9**) | **Met 2026-09-15.** `librarian/oracle.py` + `tests/test_oracle.py`. The first oracle came from two real sessions — the same citation recorded under `ms@196cdf1` and `ms@9f971a8`, reached by rolling the clone back and rebuilding — and from the operator supplying the two assertions no code can: that the result is an oracle, and that its query may be published. Breaking `ms:lens-4-sample-optics` then turns it red on the real corpus |
 
 ### Phase 4 — migration
 

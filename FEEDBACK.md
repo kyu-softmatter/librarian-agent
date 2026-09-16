@@ -182,16 +182,40 @@ Promotion requires all of:
 | **Reproduced under two distinct `index_sha`** | Not an accident of one index state |
 | Human approval | Blocks self-confirmation |
 
-### Fixture F9
+### Fixture F9 — **met 2026-09-15**
 
 Added to [BUILD.md](BUILD.md) §2.
 
 | # | Claim under test | Fixture |
 |---|---|---|
-| **F9** | An oracle **really catches a regression** | Create one oracle, then break the profile on purpose — **the test must fail** |
+| **F9** | An oracle **really catches a regression** | Create one oracle, then break the profile on purpose — **the test must fail** ✅ |
 
 > Note that F9's pass condition is that something fails. Break it and stay green
 > and the oracle is an unwired checker — BD `tools/kb.py`'s recorded failure mode.
+
+`librarian/oracle.py` · `tests/test_oracle.py`, and three things about how it
+came out are worth keeping.
+
+**`within_top` is measured, not chosen.** It is the worst rank the citation
+actually achieved across the sessions being promoted. Chosen, it would be either
+so loose that no regression trips it or so tight that ordinary reranking does,
+and neither failure says anything about retrieval.
+
+**The first oracle came from two real index states, reached by going back to
+one.** `ms@9f971a8` was current; `ms@196cdf1` was reproduced by rolling the
+clone back, rebuilding, running the same query and recording the same citation.
+That is what §5's *"two distinct `index_sha`"* asks for, and doing it once
+showed the condition is reachable rather than aspirational.
+
+**Promotion takes two assertions from a person, not one.** `--approve` says the
+result is an oracle; `--publish-query` says its raw query may enter a public
+repository. They are separate because they are judgments about different
+things, and collapsing them would hide the second — which is the one nothing
+else can check ([PLAN.md](PLAN.md) §6.1).
+
+> **And F9 was checked by mutation, because a fixture whose pass condition is a
+> failure can pass for the wrong reason.** Forcing `OracleResult.ok` to `True`
+> turns F9 red; forcing every rank to 1 turns its companion red. Both were run.
 
 ---
 

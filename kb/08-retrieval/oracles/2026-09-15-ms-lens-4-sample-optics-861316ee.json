@@ -1,0 +1,26 @@
+{
+  "caller_profile":"ms:lens-4-sample-optics",
+  "cited":[
+    "ms:kb/expertise/coverslip-thickness-in-use.md#verdict"
+  ],
+  "observed_ranks":{
+    "ms:kb/expertise/coverslip-thickness-in-use.md#verdict":1
+  },
+  "promoted_from":[
+    "ret-103522fa",
+    "ret-ec5c57c3"
+  ],
+  "query":"coverslip thickness for the oil objective",
+  "reproduced_under":[
+    {
+      "bd":"a18e171",
+      "ms":"196cdf1"
+    },
+    {
+      "bd":"a18e171",
+      "ms":"9f971a8"
+    }
+  ],
+  "schema":"librarian.oracle/0.1",
+  "within_top":1
+}

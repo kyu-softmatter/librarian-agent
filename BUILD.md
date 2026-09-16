@@ -90,6 +90,19 @@ while it is being made.
 
 > **F9's pass condition is that something fails.** Break it and stay green and the
 > oracle is an unwired checker — BD's recorded failure mode again.
+>
+> **Built 2026-09-15, twice over** — `tests/test_oracle.py`. Once on a corpus
+> constructed in the test, which proves the mechanism is wired; and once on the
+> real corpus against the real `ms:lens-4-sample-optics` and the oracle a person
+> actually approved, which proves it is wired to the thing that would regress.
+> Lowering `expertise` from **1.9 to 0.5** — the weight that profile's own
+> header says its captured priors live under — drops the entry out of the top
+> slot and the oracle goes red.
+>
+> **And F9 was itself checked by mutation, because a fixture whose pass
+> condition is a failure can pass for the wrong reason.** Forcing
+> `OracleResult.ok` to `True` turns F9 red; forcing every rank to 1 turns its
+> companion red. Both were run, and neither is a hypothetical.
 
 ---
 
@@ -202,7 +215,8 @@ constraint ④ forbids. Migration starts when all of the following pass.
 | Defect report | The `has_falsifier = 0` list is produced |
 | Challenge routing | A raise without `falsifier_cited` is **refused**; with it, routes by type across all four paths |
 | The literature route | For `resolvable_by: literature`, decides only whether the locator exists, and returns `unknown` otherwise |
-| Oracle regression | F9 — breaking a profile makes a test **fail** |
+| Oracle regression | F9 — breaking a profile makes a test **fail**. ✅ `tests/test_oracle.py`, on the fixture corpus and on the real one |
+| Promotion | Refused without two distinct index SHAs, without a `useful` verdict with a citation, and without a person's two assertions — that the result is an oracle, and that its query may be published |
 
 ### D · Refresh and isolation — **weekly automation is deferred**
 

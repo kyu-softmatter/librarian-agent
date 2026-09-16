@@ -167,6 +167,30 @@ def write_record(directory: Path, record: dict[str, Any], date: str,
     return Written(final, digest, created=True)
 
 
+def read_records_with_ids(directory: Path, prefix: str,
+                          suffix: str = ".json") -> list[dict[str, Any]]:
+    """Every record, each carrying its derived id under `_id`.
+
+    The id is not in the file -- identity is the filename's digest, so a stored
+    copy could disagree with the file it sits in. A caller that needs to refer
+    to a record (an oracle naming the sessions it came from) needs the id back,
+    and this is where it is re-derived rather than written down twice.
+
+    The underscore marks it as attached on read: it is not part of the record
+    and it is not hashed.
+    """
+    out = []
+    if not directory.is_dir():
+        return out
+    for p in sorted(directory.glob(f"*{suffix}")):
+        if p.name.startswith("."):
+            continue
+        rec = json.loads(p.read_text(encoding="utf-8"))
+        rec["_id"] = f"{prefix}{p.stem.rsplit('-', 1)[-1]}"
+        out.append(rec)
+    return out
+
+
 def read_records(directory: Path, suffix: str = ".json") -> list[dict[str, Any]]:
     """Every record in a directory, in filename order.
 

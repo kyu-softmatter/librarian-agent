@@ -4,10 +4,20 @@ What was asked, and what turned out to answer it. The only canonical knowledge
 Librarian holds about itself.
 
 ```
-sessions/   one query = one formal object
+sessions/   one query = one formal object            [gitignored]
 oracles/    promoted to regression tests (human-approved)
 findings/   why a profile fails — the cause, not the symptom
 ```
+
+    python -m librarian.cli sessions    # what is here, and what each needs
+    python -m librarian.cli promote --profile <id> --approve --publish-query <query>
+    python -m librarian.cli oracles     # run every committed oracle
+
+**An oracle is a past confirmed citation, re-run.** Retrieval has no grader, so
+one stands in for it — which is the whole reason `cited` is the field
+`kb_feedback` collects. `within_top` is the worst rank the citation actually
+achieved, measured at promotion rather than chosen: chosen, it is either too
+loose to trip on a regression or too tight to survive ordinary reranking.
 
 **Schema and rules: [../../FEEDBACK.md](../../FEEDBACK.md).** Read it before
 adding anything here — this folder is where the design is most likely to violate

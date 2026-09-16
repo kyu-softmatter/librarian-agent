@@ -152,7 +152,7 @@ is below the table**, because every figure here has already gone stale once:
 | Cross-references | **557** — 437 indexed · 91 present but unindexed · 29 broken |
 | Registry coverage rows | **25** |
 | Drift and defect findings | **34** |
-| Tests | **178**, 146 of them offline |
+| Tests | **189**, 155 of them offline |
 
 ```bash
 pip install -e ".[dev]"
@@ -214,8 +214,27 @@ would overturn it, and the fix is a pull request against whoever holds it.
 **Promotion to a regression oracle is not a tool.** An agent promoting its own
 retrieval results to ground truth is a self-confirming loop — what ranks high
 gets cited, having been cited it becomes an oracle, being an oracle keeps it
-ranked high — and human approval is the only damping on it. `librarian sessions`
-is the view that approval is given against.
+ranked high — and human approval is the only damping on it. It takes **two**
+assertions from a person, because they are judgments about different things:
+that the result is an oracle, and that its raw query may enter a public
+repository.
+
+```bash
+python -m librarian.cli sessions
+python -m librarian.cli promote --profile ms:lens-4-sample-optics \
+    --approve --publish-query "coverslip thickness for the oil objective"
+python -m librarian.cli oracles
+```
+
+**An oracle is a past confirmed citation, re-run — and it has to actually catch
+a regression.** That is fixture F9, and its pass condition is that something
+*fails*: break the profile on purpose and the oracle must go red. Stay green and
+it is an unwired checker, which is BD's recorded failure — `tools/kb.py` pointed
+at a renamed path and reported *"run-less knowledge 0"* for 126 existing
+entries. Checked on a fixture corpus **and** on the real one: lowering
+`ms:lens-4-sample-optics`'s `expertise` weight from 1.9 to 0.5 drops the entry
+out of the top slot and the oracle notices. F9 was then mutation-tested, because
+a fixture whose pass condition is a failure can pass for the wrong reason.
 
 ### It is a server, not a fourth agent
 

@@ -18,6 +18,7 @@ INDEX = ROOT / "index" / "kb.sqlite"
 PROFILES = ROOT / "profiles"
 MANIFEST = ROOT / "map" / "manifest.json"
 SESSIONS = ROOT / "kb" / "08-retrieval" / "sessions"
+ORACLES = ROOT / "kb" / "08-retrieval" / "oracles"
 
 
 def _root(repo: str) -> Path:
@@ -438,6 +439,110 @@ def cmd_sessions(args) -> int:
     return 0
 
 
+def cmd_promote(args) -> int:
+    """Promote a question's sessions into an oracle. **The approval is yours.**
+
+    Two flags, and they are two different judgments about two different things:
+    `--approve` says the result is an oracle, and `--publish-query` says its
+    raw query may enter a public repository. Collapsing them into one would
+    hide the second, which is the one nothing else can check -- `sessions/` is
+    gitignored precisely because nobody reads a session before it lands, and
+    this command is the moment somebody does.
+
+    Neither flag is a formality. An agent promoting its own retrieval results
+    to ground truth is a self-confirming loop, and a person typing this is the
+    only damping on it.
+    """
+    from librarian.index import Index, load_profiles
+    from librarian.oracle import PromotionError, check_promotable, promote
+    from librarian.record import read_records_with_ids
+    if not INDEX.exists():
+        sys.exit("no index. Run: python -m librarian.cli reindex --repo ms")
+
+    query = " ".join(args.query)
+    # With ids, so the oracle can name the sessions it came from.
+    sessions = [r for r in read_records_with_ids(SESSIONS, "ret-")
+                if r.get("query") == query
+                and r.get("caller_profile") == args.profile]
+    if not sessions:
+        sys.exit(f"no sessions for {query!r} under {args.profile}. "
+                 f"`librarian sessions` lists what there is.")
+
+    unmet = check_promotable(sessions)
+    if unmet:
+        print(f"not promotable yet ({len(sessions)} session(s)):")
+        for u in unmet:
+            print(f"  - {u}")
+        return 1
+
+    if not (args.approve and args.publish_query):
+        print(f"{len(sessions)} session(s) meet every condition except yours.\n")
+        print("  --approve         the cited result is an oracle, and you say so")
+        print("  --publish-query   its raw query may be committed to a public")
+        print("                    repository. An oracle carries the query "
+              "verbatim,")
+        print("                    because it cannot be re-run without it.")
+        print(f"\n  query:   {query!r}")
+        print(f"  profile: {args.profile}")
+        print(f"  cited:   {sorted({u for s in sessions for u in s.get('cited', [])})}")
+        return 1
+
+    profiles = load_profiles(PROFILES)
+    idx = Index(INDEX)
+    try:
+        written = promote(ORACLES, sessions, idx, profiles, _today(),
+                          approved_by_a_person=args.approve,
+                          query_may_be_published=args.publish_query)
+    except PromotionError as e:
+        sys.exit(f"refused: {e}")
+    finally:
+        idx.close()
+
+    import json
+    oracle = json.loads(written.path.read_text(encoding="utf-8"))
+    print(f"wrote {written.path.relative_to(ROOT)}"
+          + ("" if written.created else "   (already promoted)"))
+    print(f"  within_top {oracle['within_top']}, measured from "
+          f"{oracle['observed_ranks']}")
+    print(f"  reproduced under {len(oracle['reproduced_under'])} index states")
+    print("\nThis file is committed, unlike the sessions it came from. The "
+          "commit records who approved it.")
+    return 0
+
+
+def cmd_oracles(args) -> int:
+    """Run every committed oracle against the current index.
+
+    The same thing `tests/test_oracle.py` does, available without pytest --
+    because after a profile edit this is the question, and a check that is
+    awkward to run is a check that stops being run.
+    """
+    from librarian.index import Index, load_profiles
+    from librarian.oracle import run_all
+    if not INDEX.exists():
+        sys.exit("no index. Run: python -m librarian.cli reindex --repo ms")
+    idx = Index(INDEX)
+    try:
+        results = run_all(idx, ORACLES, load_profiles(PROFILES))
+    finally:
+        idx.close()
+    if not results:
+        print(f"no oracles in {ORACLES.relative_to(ROOT)}/")
+        print("  (they come from real use: kb_feedback, then "
+              "`librarian promote`. None is the honest state, not a gap.)")
+        return 0
+    for r in results:
+        print(r)
+    bad = [r for r in results if not r.ok]
+    print(f"\n{len(results) - len(bad)}/{len(results)} passing")
+    return 1 if bad else 0
+
+
+def _today() -> str:
+    from datetime import date
+    return date.today().isoformat()
+
+
 def cmd_drift(args) -> int:
     from librarian.drift import drift
     findings = []
@@ -550,6 +655,21 @@ def main(argv=None) -> int:
     ses.add_argument("-v", "--verbose", action="store_true",
                      help="one line per session")
     ses.set_defaults(fn=cmd_sessions)
+
+    pr = sub.add_parser("promote",
+                        help="promote a question's sessions into an oracle "
+                             "(requires your approval)")
+    pr.add_argument("query", nargs="+")
+    pr.add_argument("--profile", required=True)
+    pr.add_argument("--approve", action="store_true",
+                    help="you assert the cited result is an oracle")
+    pr.add_argument("--publish-query", action="store_true",
+                    help="you assert its raw query may be made public")
+    pr.set_defaults(fn=cmd_promote)
+
+    orc = sub.add_parser("oracles",
+                         help="run every committed oracle against the index")
+    orc.set_defaults(fn=cmd_oracles)
 
     d = sub.add_parser("drift", help="does what is declared still match what exists")
     d.add_argument("--repo", action="append", default=None)
