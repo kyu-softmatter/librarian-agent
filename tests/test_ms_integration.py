@@ -45,6 +45,67 @@ def test_the_two_narrative_stores_are_indexed_and_cannot_advance(ms):
     assert not any(d.advances for d in docs)
 
 
+def test_an_imported_number_is_visibly_foreign_and_cannot_advance(ms):
+    """`kb/external/<origin>/` — the third store that is not a tier.
+
+    MS wrote the rule down in
+    `kb/decisions/2026-09-15-numbers-from-another-repository.md`: a number
+    computed in the simulator *"may motivate a design, and **no gate may clear
+    against them**."* Two clauses of it shape this parse.
+
+    **The path carries the foreignness** — *"a frontmatter field does not show
+    at the citation site"*, and `kb/calibrations/` is refused outright because
+    that directory means measured-on-this-instrument. So the row gets
+    `kind="external"` rather than being filed as a card or a source: a hit that
+    called it `expertise` would hide the one thing the folder exists to show.
+
+    **`may_be_gate_threshold: false` is the default**, which is why the terms
+    ride along in `conditions` — the origin, the coordinate and hash the number
+    was taken at, and that flag — rather than sitting in frontmatter a hit does
+    not carry.
+
+    And it was **nested one level down**, which is how it was found: four files
+    under `external/bd/` that the flat `iterdir()` loop skipped while the
+    coverage check counted them as candidates.
+    """
+    docs = [d for d in scan(ms).docs if d.kind == "external"]
+    assert docs, "kb/external/ produced nothing"
+    assert all(d.path.startswith("kb/external/") for d in docs)
+
+    # Not a tier, by derivation rather than by every file omitting the field.
+    assert all(d.evidence is None and d.tier is None for d in docs)
+    assert not any(d.advances for d in docs)
+
+    # Computed elsewhere, and the row says so in a branchable field.
+    assert {d.provenance for d in docs} == {"derived"}
+    assert {d.origin for d in docs} == {"bd"}
+
+    # The terms travel with the hit.
+    for d in docs:
+        assert d.conditions and "origin: bd" in d.conditions
+        assert "may_be_gate_threshold: false" in d.conditions
+        assert "source_hash: sha256:" in d.conditions
+
+    # `corrected_by` is a supersession in MS's words, and it resolves.
+    ids = {d.path.split("/")[-1].removesuffix(".md") for d in docs}
+    sup = {d.superseded_by for d in docs if d.superseded_by}
+    assert sup, "no round corrects another; the fixture for this test moved"
+    assert sup <= ids, f"{sup - ids} is named as a correction and is not here"
+
+
+def test_a_nested_kb_store_is_read_rather_than_skipped(ms):
+    """The loop reads `kb/<store>/` recursively, matching how `scan` enumerates.
+
+    `librarian/scan.py` globs `kb/` with `rglob`, so a nested store counts as a
+    candidate. The adapter used `iterdir()` and saw only the top level — so
+    `external/bd/`'s four files were candidates that produced nothing, which is
+    the coverage check earning its keep for the third time this month.
+    """
+    nested = [d for d in scan(ms).docs
+              if d.path.startswith("kb/") and d.path.count("/") > 2]
+    assert nested, "no nested kb file is indexed; the recursive walk regressed"
+
+
 def test_the_generated_kb_index_is_not_a_candidate(ms):
     """`kb/INDEX.md` repeats no value, so a hit in it could not be cited.
 

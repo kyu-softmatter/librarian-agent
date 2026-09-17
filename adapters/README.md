@@ -10,7 +10,7 @@ Hard-code a path and the next folder rename produces a silently empty read.
 
 | Source | Contract to parse | v1 |
 |---|---|---|
-| MS `kb/` | entry frontmatter; `literature/_template.md`; `plans/` and `sessions/` pinned to no evidence tier; generated `kb/INDEX.md` excluded | ✅ |
+| MS `kb/` | entry frontmatter; `literature/_template.md`; `plans/`, `sessions/` and `external/` pinned to no evidence tier; `external/`'s import terms carried in `conditions`; walked recursively, since a store may nest; generated `kb/INDEX.md` excluded | ✅ |
 | MS `data/*.yaml` | the registry field a gate consumes, and whether it is empty | ✅ |
 | MS `docs/` | section anchors as locators | ✅ |
 | MS `.claude/agents/` | lens number, owned gates, declared tools. **This is the layer that makes four declaration forms comparable** — into one `Doc`, not into a generated folder (decision 38) | ✅ |

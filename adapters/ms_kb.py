@@ -12,8 +12,20 @@ in is read as evidence and cross-checked against its frontmatter.
   decisions/     markdown, **no frontmatter**       -> date and slug come from the name
   plans/         markdown + frontmatter             -> evidence: None, always
   sessions/      markdown + frontmatter             -> evidence: None, always
+  external/<origin>/  imported numbers, nested one level -> evidence: None
 
-`plans/` and `sessions/` are the two stores that are **not** a tier. A plan is
+`external/` is the third, and MS wrote down why in
+`kb/decisions/2026-09-15-numbers-from-another-repository.md`: a number computed
+in the simulator, imported here, *"may motivate a design, and **no gate may
+clear against them**."* Two rules from that decision are load-bearing for this
+parse. **The path carries the foreignness** -- *"a frontmatter field does not
+show at the citation site"*, and `kb/calibrations/` is refused outright because
+that directory means measured-on-this-instrument. And
+**`may_be_gate_threshold: false` is the default**. So these rows get
+`kind="external"` rather than being filed as a card or a source, and
+`evidence: None` like the other two.
+
+`plans/` and `sessions/` are the two narrative stores that are **not** a tier. A plan is
 a proposal for a run that has not happened and states its own unknowns as
 BLOCKED; a session log is what a working day recorded, failures included.
 Neither is a measurement, so neither gets one -- they are pinned to
@@ -67,13 +79,37 @@ FOLDER_KIND = {
     "decisions": "decision",
     "plans": "plan",
     "sessions": "session",
+    "external": "external",
 }
 
 # The stores whose entries are never evidence, whatever their frontmatter says.
 # `_md_docs` reads `evidence:` from frontmatter for every other folder; here the
 # folder overrides it, which is the same rule as FOLDER_EVIDENCE running the
 # other way.
-FOLDER_NO_EVIDENCE = frozenset({"plans", "sessions"})
+FOLDER_NO_EVIDENCE = frozenset({"plans", "sessions", "external"})
+
+
+def _external_conditions(fm: dict) -> str | None:
+    """What an imported number may be used for, from its own frontmatter.
+
+    `kb/external/` carries the terms in fields rather than in a `scope:` line,
+    and they are the terms a caller has to see: which repository it came from,
+    the coordinate and content hash it was taken at, and -- the one MS's
+    decision calls hard rule 3 -- whether it may be a gate threshold. Carried
+    as `conditions` so it travels with every hit, the way `return_always` does
+    for a tier.
+    """
+    if not _value(fm.get("origin")):
+        return None
+    bits = [f"origin: {_value(fm.get('origin'))}"]
+    for key in ("evidence_class", "source_ref", "source_hash", "thread"):
+        v = _value(fm.get(key))
+        if v:
+            bits.append(f"{key}: {v}")
+    gate = fm.get("may_be_gate_threshold")
+    if gate is not None:
+        bits.append(f"may_be_gate_threshold: {str(bool(gate)).lower()}")
+    return " · ".join(bits)
 
 
 def _md_docs(path: Path, rel: str, folder: str, sha: str) -> list[Doc]:
@@ -99,14 +135,26 @@ def _md_docs(path: Path, rel: str, folder: str, sha: str) -> list[Doc]:
 
     common = dict(
         repo="ms", path=rel, commit_sha=sha, kind=FOLDER_KIND[folder],
-        origin=_value(fm.get("source")),
+        # `source:` in `literature/`, `origin:` in `external/` -- different
+        # folders, so neither shadows the other, and `external`'s value names
+        # the repository the number came from.
+        origin=_value(fm.get("source")) or _value(fm.get("origin")),
         evidence=evidence,
         tier=1 if evidence == "measured" else (3 if evidence == "assumed" else None),
+        # An imported number was computed, not observed here. `derived` is the
+        # one `PROVENANCE` value that says so -- `measurement` would claim the
+        # thing MS's decision refuses, and leaving it unset would lose the only
+        # branchable mark that the row is not this instrument's.
+        provenance="derived" if folder == "external" else None,
         review_after=review,
-        superseded_by=_value(fm.get("superseded_by_measurement")),
+        # `corrected_by` is MS's word for it in `kb/external/`, and it is the
+        # same relation: a later round that replaces this one's numbers.
+        superseded_by=(_value(fm.get("superseded_by_measurement"))
+                       or _value(fm.get("superseded_by"))
+                       or _value(fm.get("corrected_by"))),
         has_falsifier=falsifier,
         doi=_value(fm.get("doi")),
-        conditions=_value(fm.get("scope")),
+        conditions=_value(fm.get("scope")) or _external_conditions(fm),
     )
 
     out = []
@@ -156,7 +204,13 @@ def ms_kb(root: Path, sha: str) -> list[Doc]:
         d = kb / folder
         if not d.is_dir():
             continue
-        for path in sorted(d.iterdir()):
+        # **Recursive, to match how the coverage check already enumerates.**
+        # `librarian/scan.py` globs `kb/` with `rglob`, so a nested store was
+        # counted as a candidate and produced nothing -- which is what happened
+        # to `external/bd/` the day MS created it: four files, one level down,
+        # invisible to `iterdir()`. Every other store here is flat, so this
+        # changes nothing for them and stops the next nested one being dropped.
+        for path in sorted(d.rglob("*")):
             if not path.is_file() or path.name.startswith("."):
                 continue
             rel = path.relative_to(root).as_posix()

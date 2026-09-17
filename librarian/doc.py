@@ -27,6 +27,11 @@ KINDS = frozenset({
     # a run that has not happened, a `session` is what a working day recorded.
     # Both carry `evidence: None`, so neither can advance a verdict.
     "plan", "session",
+    # A number computed in another repository and imported. **A kind of its
+    # own, because the whole point of MS's rule is that the foreignness is
+    # visible at the citation site** -- filing it as `card` or `source` would
+    # hide exactly what `kb/external/<origin>/` exists to show.
+    "external",
     # machine-readable inputs
     "registry", "doc_section", "agent",
     # Librarian's own
