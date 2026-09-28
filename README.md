@@ -3,6 +3,8 @@
 [![tests](https://github.com/kyu-softmatter/librarian-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/kyu-softmatter/librarian-agent/actions/workflows/tests.yml)
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
+> **Rebuild:** this agent is being rebuilt as [`librarian_agent/`](https://github.com/kyu-softmatter/soft-matter-agents/tree/main/librarian_agent) in [soft-matter-agents](https://github.com/kyu-softmatter/soft-matter-agents), the four-agent system (microscope, simulation, librarian, bridge).
+
 **A librarian for three research agents: one canonical knowledge store,
 retrieval profiled per calling agent, and custody that includes retirement.**
 
